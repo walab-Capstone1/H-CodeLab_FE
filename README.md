@@ -7,39 +7,25 @@
   <img src="./docs/hcodelab-index1.png" width="900" alt="H-CodeLab — 자동채점 기반 프로그래밍 수업 운영 지원 서비스"/>
 </p>
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="./docs/hcodelab-index2.png" width="440" alt="브라우저에서 바로 코딩"/>
-      <br />
-      <sub><b>브라우저 코딩</b> · IDE 설치 없이 문제 풀이 · 자동 채점</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="./docs/hcodelab-index3.png" width="440" alt="체계적인 과제 관리"/>
-      <br />
-      <sub><b>과제 관리</b> · 학습 단계별 문제 제공 · 진행도 확인</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./docs/hcodelab-index4.png" width="440" alt="반복 학습 지원"/>
-      <br />
-      <sub><b>반복 학습</b> · 제출 로그 · 즉시 피드백</sub>
-    </td>
-    <td align="center">
-      <img src="./docs/hcodelab-index5.png" width="440" alt="교수자 수업 운영 지원"/>
-      <br />
-      <sub><b>성적 관리</b> · 제출 현황 · 진행도 통합 관리</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <img src="./docs/hcodelab-index6.png" width="700" alt="문제은행 관리"/>
-      <br />
-      <sub><b>문제은행</b> · 문제 등록 · 문제집 · 코딩테스트 연동</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="./docs/hcodelab-index2.png" width="900" alt="브라우저에서 바로 코딩"/>
+</p>
+
+<p align="center">
+  <img src="./docs/hcodelab-index3.png" width="900" alt="체계적인 과제 관리"/>
+</p>
+
+<p align="center">
+  <img src="./docs/hcodelab-index4.png" width="900" alt="반복 학습 지원"/>
+</p>
+
+<p align="center">
+  <img src="./docs/hcodelab-index5.png" width="900" alt="교수자 수업 운영 지원"/>
+</p>
+
+<p align="center">
+  <img src="./docs/hcodelab-index6.png" width="900" alt="문제은행 관리"/>
+</p>
 
 ## 목차
 
