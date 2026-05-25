@@ -1,8 +1,28 @@
 
 # H-codeLab  <img src="./public/logo.svg" alt="H-codeLab logo" width="27" style="vertical-align: middle; margin-right: 8px;" />
 
+## 목차
+
+- [프로젝트 소개](#프로젝트-소개)
+- [핵심 기능](#핵심-기능)
+- [개발 기간](#개발-기간)
+- [배포 주소](#배포-주소)
+- [개발자](#개발자)
+- [시작 가이드](#시작-가이드)
+- [기술 스택](#기술-스택)
+- [화면구성](#화면구성)
+- [아키텍처 및 디렉토리 구조](#아키텍처-및-디렉토리-구조)
+
 # 프로젝트 소개
-  React, Spring Boot, DOMjudge 기반으로 개발한 웹 프로그래밍 실습 서비스이다. 학생은 별도 설치 없이 브라우저에서 코드를 작성하고 즉시 채점 결과를 확인할 수 있으며, 교수자는 과제 관리와 자동채점 기반 수업 운영이 가능하다. 실제 C 프로그래밍 수업에 적용하여 학습 효율과 문제 해결 집중도 향상을 확인하였다.  
+  React, Spring Boot, DOMjudge 기반으로 개발한 웹 프로그래밍 실습 서비스이다. 학생은 별도 설치 없이 브라우저에서 코드를 작성하고 즉시 채점 결과를 확인할 수 있으며, 교수자는 과제 관리와 자동채점 기반 수업 운영이 가능하다. 실제 C 프로그래밍 수업에 적용하여 학습 효율과 문제 해결 집중도 향상을 확인하였다.
+
+## 핵심 기능
+
+- **학생**: 수업·과제·문제 풀이, 코딩 테스트 응시, 공지 확인, 커뮤니티 Q&A
+- **교수**: 수업·문제·과제·코딩 테스트 관리, 학생 진행 현황·채점·성적 관리
+- **자동 채점**: DOMjudge 연동으로 코드 제출 후 즉시 채점 결과 확인
+- **코드 에디터**: CodeMirror 기반 브라우저 IDE (C, C++, Java, Python 등)
+- **인증**: 이메일/비밀번호 및 소셜 로그인 (Google, GitHub)
 
 ## 개발 기간
 - 2025.09 ~ 진행 중
@@ -11,15 +31,50 @@
 - 서비스 주소: [`https://hcl.walab.info`](https://hcl.walab.info)
 
 ## 개발자
-| [**우병희**](https://github.com/dnqudgml12) | [**곽서원**](https://github.com/seowon1112) | [**윤동혁**](https://github.com/Diggydogg) |
-|---|---|---|
-| Frontend, Backend | Frontend, Backend | Infra, Backend |
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/dnqudgml12">
+        <img src="https://github.com/dnqudgml12.png" width="100" alt="우병희"/>
+      </a>
+      <br />
+      <b>우병희</b>
+      <br />
+      Frontend, Backend
+    </td>
+    <td align="center">
+      <a href="https://github.com/seowon1112">
+        <img src="https://github.com/seowon1112.png" width="100" alt="곽서원"/>
+      </a>
+      <br />
+      <b>곽서원</b>
+      <br />
+      Frontend, Backend
+    </td>
+    <td align="center">
+      <a href="https://github.com/Diggydogg">
+        <img src="https://github.com/Diggydogg.png" width="100" alt="윤동혁"/>
+      </a>
+      <br />
+      <b>윤동혁</b>
+      <br />
+      Infra, Backend
+    </td>
+  </tr>
+</table>
+
 ---
 
 ## 시작 가이드
 
+### 사전 요구사항
 
-### 설치 및 실행
+- **Frontend**: Node.js 18+, npm
+- **Backend** (API 연동 시): Java 11, MariaDB, Redis, DOMjudge
+
+### Frontend 설치 및 실행
+
 ```bash
 git clone https://github.com/walab-Capstone1/Handongjudge_FE.git
 cd Handongjudge_FE
@@ -27,12 +82,42 @@ npm install
 npm start
 ```
 
-### 빌드
+개발 서버는 기본적으로 `http://localhost:3000` 에서 실행됩니다.
+
+### 환경 변수
+
+프로젝트 루트에 `.env` 파일을 생성합니다.
+
 ```bash
-npm start
+REACT_APP_API_URL=http://localhost:8080/api
 ```
 
+환경 변수를 설정하지 않으면 기본값 `https://hcl.walab.info/api` 로 요청합니다.
+
+### Backend 연동
+
+로컬에서 API·인증·채점 기능을 사용하려면 Backend를 함께 실행해야 합니다.
+
+```bash
+git clone https://github.com/walab-Capstone1/Handongjudge_BE.git
+cd Handongjudge_BE
+# .env 파일 설정 (DB, Redis, DOMjudge, OAuth 등)
+./gradlew bootRun
+```
+
+- Backend 기본 포트: `8080`
+- Frontend 기본 포트: `3000`
+- `local` 프로파일에서는 `http://localhost:3000` CORS가 허용됩니다.
+
 [Backend Repository](https://github.com/walab-Capstone1/Handongjudge_BE.git)
+
+### 빌드
+
+```bash
+npm run build
+```
+
+빌드 결과물은 `build/` 디렉토리에 생성됩니다.
 
 ---
 
@@ -107,12 +192,25 @@ npm start
 **과제의 문제 구성과 제출 현황, 세부 안내를 확인하는 상세 페이지입니다.**
 
 ****
-![문제 풀이](./docs/hcodelab-problem-solve.png)
+![문제 풀이](./docs/hcodelab-problem-testcase.png)
 **에디터에서 코드를 작성하고 제출/채점 결과를 확인하는 실습 화면입니다.**
 
 ****
 ![공지](./docs/hcodelab-notice.png)
 **수업 공지사항과 중요 안내를 확인하는 공지 페이지입니다.**
+
+****
+### 커뮤니티
+![질의응답 목록](./docs/hcodelab-community-list.png)
+**과제·문제별 질의응답 게시글을 검색하고 조회하는 커뮤니티 목록 화면입니다.**
+
+****
+![질문 작성](./docs/hcodelab-community-post.png)
+**관련 과제/문제를 선택하고 질문을 작성하는 게시글 등록 화면입니다.**
+
+****
+![질문 상세](./docs/hcodelab-community-view.png)
+**질문 본문, 댓글, 추천 및 해결 상태를 확인하는 게시글 상세 화면입니다.**
 
 ****
 ![테스트](./docs/hcodelab-test.png)
@@ -164,6 +262,22 @@ npm start
 ****
 ![시험 관리](./docs/hcodelab-exam-manage.png)
 **코딩 테스트 생성, 배포, 문제 구성, 진행 상태를 관리하는 화면입니다.**
+
+****
+![코딩테스트 메인](./docs/hcodelab-quiz-main.png)
+**코딩 테스트 기본 정보, 시작·종료 시간, 공개 상태를 확인하고 시험을 제어하는 메인 화면입니다.**
+
+****
+![대회 문제](./docs/hcodelab-quiz-problemlists.png)
+**코딩 테스트에 포함된 문제 목록과 제출·정답률 통계를 관리하는 화면입니다.**
+
+****
+![제출 상세정보](./docs/hcodelab-quiz-submit-detail.png)
+**학생별 제출 기록과 채점 결과, 제출 코드를 조회하는 화면입니다.**
+
+****
+![학생 진행 현황](./docs/hcodelab-quiz-student-progress.png)
+**학생별 진행 상태, 완료율, 문제별 풀이 현황을 한눈에 확인하는 화면입니다.**
 
 
 
