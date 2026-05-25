@@ -11,6 +11,9 @@ import {
 	GradeProblemCellDisplay,
 	GradeStatusLegendBar,
 } from "./GradeProblemCellDisplay";
+import type { ProblemGrade, QuizSubmissionLogTarget } from "../types";
+import * as GS from "../styles";
+import QuizSubmissionLogButton from "./QuizSubmissionLogButton";
 
 export interface GradeManagementCourseTableProps {
 	courseLoading: boolean;
@@ -52,7 +55,16 @@ export interface GradeManagementCourseTableProps {
 		userId: number,
 		problemId: number,
 	) => void;
+	onOpenQuizSubmissionLog?: (ctx: QuizSubmissionLogTarget) => void;
 	onProblemDetail?: (problemId: number) => void;
+	onOpenAssignmentReview?: (ctx: {
+		assignmentId: number;
+		userId: number;
+		problemId: number;
+		studentName: string;
+		problemTitle: string;
+		problem?: ProblemGrade | null;
+	}) => void;
 	totalOnly?: boolean;
 	onToggleTotalOnly?: (v: boolean) => void;
 	showLateOnly?: boolean;
@@ -75,7 +87,9 @@ export default function GradeManagementCourseTable({
 	onViewCode,
 	onSaveGradeForQuiz,
 	onViewCodeForQuiz,
+	onOpenQuizSubmissionLog,
 	onProblemDetail,
+	onOpenAssignmentReview,
 	totalOnly = false,
 	onToggleTotalOnly,
 	showLateOnly = false,
@@ -301,6 +315,28 @@ export default function GradeManagementCourseTable({
 																		fallbackPoints={problem.points ?? 1}
 																		dueAt={item.dueAt}
 																		showLateOnly={showLateOnly}
+																		trailingActions={
+																			onOpenAssignmentReview ? (
+																				<GS.BtnReviewCode
+																					type="button"
+																					title="코드 확인 · 코멘트 · 반려"
+																					onClick={() =>
+																						onOpenAssignmentReview({
+																							assignmentId: item.id,
+																							userId: student.userId,
+																							problemId: problem.problemId,
+																							studentName:
+																								student.studentName ?? "",
+																							problemTitle:
+																								problem.problemTitle ?? "",
+																							problem: problemGrade,
+																						})
+																					}
+																				>
+																					{"</>"}
+																				</GS.BtnReviewCode>
+																			) : undefined
+																		}
 																	/>
 																</S.TdCourseProblemCell>
 															);
@@ -338,6 +374,24 @@ export default function GradeManagementCourseTable({
 																	fallbackPoints={problem.points ?? 1}
 																	dueAt={item.dueAt}
 																	showLateOnly={showLateOnly}
+																	trailingActions={
+																		onOpenQuizSubmissionLog ? (
+																			<QuizSubmissionLogButton
+																				submitted={problemGrade?.submitted}
+																				onOpen={onOpenQuizSubmissionLog}
+																				ctx={{
+																					quizId: item.id,
+																					quizTitle: item.title,
+																					userId: student.userId,
+																					problemId: problem.problemId,
+																					studentName:
+																						student.studentName ?? "",
+																					problemTitle:
+																						problem.problemTitle ?? "",
+																				}}
+																			/>
+																		) : undefined
+																	}
 																/>
 															</S.TdCourseProblemCell>
 														);

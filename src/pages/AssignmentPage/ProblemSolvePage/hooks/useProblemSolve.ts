@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useRecoilValue } from "recoil";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { authState } from "../../../../recoil/atoms";
 import apiService from "../../../../services/APIService";
+import tokenManager from "../../../../utils/tokenManager";
 import indexedDBManager from "../../../../utils/IndexedDBManager";
 import { getDefaultCode } from "../utils/getDefaultCode";
 import {
@@ -10,6 +12,9 @@ import {
 	RESULT_MAPPING_OUTPUT,
 } from "../utils/resultMappings";
 import type { Problem, SubmissionResultState } from "../types";
+import type { ProblemWorkStatus } from "../../../Course/CodingQuiz/CodingQuizSolvePage/types";
+
+export type TestcaseResult = { index: number; result: string };
 
 export type PanelKey = "description" | "editor" | "result";
 export type PanelLayout = {
@@ -30,12 +35,14 @@ export function useProblemSolve() {
 		sectionId: string;
 	}>();
 
-	const [language, setLanguage] = useState("c");
+	const [language] = useState("c");
 	const [theme, setTheme] = useState<"light" | "dark">("light");
 	const [code, setCode] = useState(() => getDefaultCode("c"));
 	const [submissionResult, setSubmissionResult] =
 		useState<SubmissionResultState | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [testcaseResults, setTestcaseResults] = useState<TestcaseResult[] | null>(null);
+	const [totalTestcaseCount, setTotalTestcaseCount] = useState<number | null>(null);
 	const [currentProblem, setCurrentProblem] = useState<Problem>({
 		title: "Loading...",
 		description: "Loading...",
@@ -86,14 +93,93 @@ export function useProblemSolve() {
 	const [sectionAssignments, setSectionAssignments] = useState<
 		SectionAssignmentSummary[]
 	>([]);
+	const [problemStatusById, setProblemStatusById] = useState<
+		Record<number, ProblemWorkStatus>
+	>({});
 	const auth = useRecoilValue(authState);
 
 	// 마지막으로 서버에 저장된 코드 (hasUnsavedChanges 판단 기준)
 	const lastSavedCodeRef = useRef<string>("");
 	// IndexedDB 디바운스 저장 타이머
 	const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// 제출하기 폴링 취소 플래그 (언마운트 또는 재제출 시 이전 폴링 중단)
+	const submissionPollingCancelledRef = useRef(false);
+	// 테스트하기 SSE 연결 취소용 AbortController
+	const sseAbortControllerRef = useRef<AbortController | null>(null);
+	// 테스트하기 SSE 수신 중 output 누적용 (re-render 없이 축적)
+	const testcaseOutputAccumRef = useRef<NonNullable<SubmissionResultState["outputList"]>>([]);
 	const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 	const pendingNavigationRef = useRef<PendingNavigation | null>(null);
+
+	const mergeStatusesFromApi = useCallback(
+		(
+			response: unknown,
+			prev: Record<number, ProblemWorkStatus>,
+		): Record<number, ProblemWorkStatus> => {
+			const root =
+				typeof response === "object" &&
+				response !== null &&
+				"data" in (response as Record<string, unknown>)
+					? (response as { data: unknown }).data
+					: response;
+			if (!root || typeof root !== "object") return prev;
+			const list = (root as { problemStatuses?: unknown }).problemStatuses;
+			if (!Array.isArray(list)) return prev;
+			const next: Record<number, ProblemWorkStatus> = {};
+			for (const row of list) {
+				const rec = row as Record<string, unknown>;
+				const pid = Number(rec.problemId);
+				if (!Number.isFinite(pid)) continue;
+				const hasSubmitted = Boolean(rec.hasSubmitted);
+				const hasCorrect = Boolean(rec.hasCorrectSubmission);
+				const was = prev[pid];
+				next[pid] = {
+					problemId: pid,
+					submitted: hasSubmitted,
+					result: hasSubmitted ? (hasCorrect ? "AC" : "WA") : null,
+					saved: hasSubmitted ? false : Boolean(was?.saved),
+				};
+			}
+			return next;
+		},
+		[],
+	);
+
+	const refreshProblemStatuses = useCallback(async () => {
+		if (!sectionId || !assignmentId || auth.loading) return;
+		try {
+			const res = await apiService.getUserSubmissionStatus(
+				sectionId,
+				assignmentId,
+			);
+			setProblemStatusById((prev) => mergeStatusesFromApi(res, prev));
+		} catch (e) {
+			console.warn("과제 문제 제출 상태 조회 실패:", e);
+		}
+	}, [sectionId, assignmentId, auth.loading, mergeStatusesFromApi]);
+
+	useEffect(() => {
+		if (
+			!sectionId ||
+			!assignmentId ||
+			problems.length === 0 ||
+			auth.loading
+		)
+			return;
+		void refreshProblemStatuses();
+	}, [sectionId, assignmentId, problems, auth.loading, refreshProblemStatuses]);
+
+	useEffect(() => {
+		if (!isProblemModalOpen || !sectionId || !assignmentId || auth.loading)
+			return;
+		void refreshProblemStatuses();
+	}, [
+		isProblemModalOpen,
+		sectionId,
+		assignmentId,
+		auth.loading,
+		refreshProblemStatuses,
+	]);
 
 	useEffect(() => {
 		const loadAllInfo = async () => {
@@ -280,6 +366,23 @@ export function useProblemSolve() {
 			lastSavedCodeRef.current = code;
 			setSessionSaveStatus("saved");
 
+			const pid = Number(problemId);
+			if (Number.isFinite(pid)) {
+				setProblemStatusById((prev) => {
+					const cur = prev[pid];
+					if (cur?.submitted) return prev;
+					return {
+						...prev,
+						[pid]: {
+							problemId: pid,
+							submitted: false,
+							result: null,
+							saved: true,
+						},
+					};
+				});
+			}
+
 			if (showModal) {
 				setShowSaveModal(true);
 				setTimeout(() => setShowSaveModal(false), 2000);
@@ -292,20 +395,6 @@ export function useProblemSolve() {
 			setTimeout(() => setSessionSaveStatus("idle"), 2000);
 		}
 	}, [code, language, problemId, sectionId]);
-
-	const loadFromSession = useCallback(async (): Promise<string | null> => {
-		if (!sessionId || !problemId || !sectionId) return null;
-		try {
-			const savedData = await indexedDBManager.getSessionCode(
-				problemId,
-				sectionId,
-				language,
-			);
-			return savedData ? savedData.code : null;
-		} catch {
-			return null;
-		}
-	}, [sessionId, problemId, sectionId, language]);
 
 	const clearSessionAfterSubmission = useCallback(async () => {
 		if (!sessionId || !problemId || !sectionId) return;
@@ -416,6 +505,28 @@ export function useProblemSolve() {
 		return () => clearInterval(interval);
 	}, [saveToBackend]);
 
+	// 문제/과제 이동 시 이전 채점·테스트 결과 및 진행 중 폴링/SSE 정리
+	useEffect(() => {
+		void problemId;
+		void assignmentId;
+		submissionPollingCancelledRef.current = true;
+		sseAbortControllerRef.current?.abort();
+		sseAbortControllerRef.current = null;
+		testcaseOutputAccumRef.current = [];
+		setSubmissionResult(null);
+		setTestcaseResults(null);
+		setTotalTestcaseCount(null);
+		setIsSubmitting(false);
+	}, [problemId, assignmentId]);
+
+	// 언마운트 시 진행 중인 폴링/SSE 취소
+	useEffect(() => {
+		return () => {
+			submissionPollingCancelledRef.current = true;
+			sseAbortControllerRef.current?.abort();
+		};
+	}, []);
+
 	// 페이지 이탈/새로고침 시 미저장 변경사항 경고
 	useEffect(() => {
 		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -488,38 +599,72 @@ export function useProblemSolve() {
 			}
 		}
 
+		// 이전 폴링이 진행 중이면 취소
+		submissionPollingCancelledRef.current = true;
+		await new Promise((r) => setTimeout(r, 0));
+		submissionPollingCancelledRef.current = false;
+
 		setIsSubmitting(true);
 		setSubmissionResult(null);
+		setTestcaseResults(null);
+
 		try {
-			const submissionResponse = await apiService.submitCode(
+			// Step 1: DOMjudge에 제출 — 즉시 submissionDbId 반환
+			const submitRes = await apiService.submitCodeAsync(
 				sectionId,
 				problemId,
 				code,
 				language,
 			);
-			const res = submissionResponse?.data ?? submissionResponse;
-			const result = res?.result ?? res?.resultType;
-			const fallback = {
-				status: "unknown",
-				message: String(result),
-				color: "#6c757d",
-			};
+			const submissionDbId: number = submitRes?.submissionDbId;
+			if (!submissionDbId) {
+				throw new Error("제출 ID를 받지 못했습니다. 다시 시도해주세요.");
+			}
+
+			// Step 2: 결과 폴링 (1.5초 간격, 최대 35초)
+			const POLL_INTERVAL_MS = 1500;
+			const TIMEOUT_MS = 35_000;
+			const deadline = Date.now() + TIMEOUT_MS;
+			let resultData: any = null;
+
+			while (Date.now() < deadline) {
+				if (submissionPollingCancelledRef.current) return;
+				await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+				if (submissionPollingCancelledRef.current) return;
+
+				const pollRes = await apiService.getAssignmentResult(submissionDbId);
+				if (pollRes) {
+					resultData = pollRes?.data ?? pollRes;
+					break;
+				}
+			}
+
+			if (!resultData) {
+				throw new Error(
+					"채점 결과를 가져오는 데 시간이 초과되었습니다. 제출은 완료되었을 수 있으니 제출 목록에서 확인해 주세요.",
+				);
+			}
+
+			const result = resultData?.result ?? resultData?.resultType;
+			const fallback = { status: "unknown", message: String(result), color: "#6c757d" };
 			const resultInfo = RESULT_MAPPING_JUDGE[result ?? "WA"] ?? fallback;
 			setSubmissionResult({
 				status: "completed",
 				result: result ?? "NO",
 				resultInfo,
-				submissionId: res?.submissionId,
-				submittedAt: res?.submittedAt,
-				language: res?.language ?? language,
+				submissionId: resultData?.submissionId,
+				submittedAt: resultData?.submittedAt,
+				language: resultData?.language ?? language,
 				code,
 				type: "judge",
 			});
 			await clearSessionAfterSubmission();
+			await refreshProblemStatuses();
+
 		} catch (error: unknown) {
+			if (submissionPollingCancelledRef.current) return;
 			const message =
 				error instanceof Error ? error.message : "코드 제출에 실패했습니다.";
-			// 백엔드에서 비활성화 에러만 처리 (마감일 지나면 지각 제출 허용)
 			if (
 				message.includes("비활성화") ||
 				message.includes("제출할 수 없습니다")
@@ -547,12 +692,18 @@ export function useProblemSolve() {
 		sectionId,
 		problemId,
 		clearSessionAfterSubmission,
+		refreshProblemStatuses,
 		isAssignmentActive,
 		navigate,
 		userRole,
 		assignmentInfo.endDate,
 		assignmentInfo.dueDate,
 	]);
+
+	// SSE 세션 결과 초기화 (재제출 시 이전 테스트케이스 결과 지우기)
+	const resetTestcaseResults = useCallback(() => {
+		setTestcaseResults(null);
+	}, []);
 
 	const handleSubmitWithOutput = useCallback(async () => {
 		if (!code.trim()) {
@@ -561,43 +712,141 @@ export function useProblemSolve() {
 		}
 		if (!sectionId || !problemId) return;
 
-		// 비활성화 체크 (마감일 지나면 지각 제출로 허용)
-		// 관리자/튜터는 비활성화된 과제도 테스트 가능
 		const isManager = userRole === "ADMIN" || userRole === "TUTOR";
 		if (!isAssignmentActive && !isManager) {
 			alert("해당 과제는 비활성화되어 있어 테스트할 수 없습니다.");
 			return;
 		}
 
+		// 이전 SSE 연결 종료
+		sseAbortControllerRef.current?.abort();
+		const abortController = new AbortController();
+		sseAbortControllerRef.current = abortController;
+
 		setIsSubmitting(true);
 		setSubmissionResult(null);
+		setTestcaseResults(null);
+		setTotalTestcaseCount(null);
+		testcaseOutputAccumRef.current = [];
+
 		try {
-			const submissionResponse = await apiService.submitCodeAndGetOutput(
+			// Step 1: DOMjudge에 제출 — sessionKey(= domjudgeSubmissionId) 반환
+			const submitRes = await apiService.testSubmitAsync(
 				sectionId,
 				problemId,
 				code,
 				language,
 			);
-			const res = submissionResponse?.data ?? submissionResponse;
-			const result = res?.result ?? res?.resultType;
-			const resultInfo = RESULT_MAPPING_OUTPUT[result] ?? {
-				status: "unknown",
-				message: String(result ?? "unknown"),
-				color: "#6c757d",
-			};
-			setSubmissionResult({
-				status: "completed",
-				result: result ?? "no-output",
-				resultInfo,
-				submissionId: res?.submissionId,
-				submittedAt: res?.submittedAt,
-				language: res?.language ?? language,
-				code,
-				outputList: res?.outputList ?? undefined,
-				type: "output",
-			});
-			await clearSessionAfterSubmission();
+			const sessionKey: string = submitRes?.sessionKey;
+			const resSectionId: number = submitRes?.sectionId;
+			const submittedAt: string = submitRes?.submittedAt;
+			const submittedLanguage: string = submitRes?.language ?? language;
+			if (!sessionKey) {
+				throw new Error("세션 키를 받지 못했습니다. 다시 시도해주세요.");
+			}
+
+			// Step 2: SSE 스트리밍으로 테스트케이스 output 수신
+			const baseURL = process.env.REACT_APP_API_URL || "https://hcl.walab.info/api";
+			const token = tokenManager.getAccessToken();
+
+			await fetchEventSource(
+				`${baseURL}/submissions/test/stream/${sessionKey}?sectionId=${resSectionId}`,
+				{
+					method: "GET",
+					headers: {
+						...(token ? { Authorization: `Bearer ${token}` } : {}),
+					},
+					signal: abortController.signal,
+					openWhenHidden: true,
+					onmessage(event) {
+						if (abortController.signal.aborted) return;
+						try {
+							const data = JSON.parse(event.data);
+
+						if (event.event === "total") {
+							setTotalTestcaseCount(data.count);
+
+						} else if (event.event === "testcase") {
+							// 진행 인디케이터용 (re-render O)
+							setTestcaseResults((prev) => [
+									...(prev ?? []),
+									{ index: data.index, result: data.result },
+								]);
+								// 최종 outputList 구성용 (re-render X)
+								testcaseOutputAccumRef.current = [
+									...testcaseOutputAccumRef.current,
+									{
+										testcase_rank: data.index,
+										result: data.result ?? null,
+										runtime: data.runtime,
+										memory_used: data.memoryUsed,
+										testcase_input: data.testcaseInput,
+										expected_output: data.expectedOutput,
+										output: data.output,
+										output_error: data.outputError,
+										output_diff: data.outputDiff,
+									},
+								];
+
+							} else if (event.event === "complete") {
+								const result: string = data.result;
+								const resultInfo = RESULT_MAPPING_OUTPUT[result] ?? {
+									status: "unknown",
+									message: String(result ?? "unknown"),
+									color: "#6c757d",
+								};
+								setSubmissionResult({
+									status: "completed",
+									result,
+									resultInfo,
+									submittedAt,
+									language: submittedLanguage,
+									code,
+									outputList: testcaseOutputAccumRef.current,
+									type: "output",
+								});
+								abortController.abort();
+
+							} else if (event.event === "ce") {
+								const resultInfo = RESULT_MAPPING_OUTPUT["CE"] ?? {
+									status: "ce",
+									message: "컴파일 에러",
+									color: "#fd7e14",
+								};
+								setSubmissionResult({
+									status: "completed",
+									result: "CE",
+									resultInfo,
+									submittedAt,
+									language: submittedLanguage,
+									code,
+									type: "output",
+									output_compile: data.output_compile,
+								});
+								abortController.abort();
+
+							} else if (event.event === "error") {
+								setSubmissionResult({
+									status: "error",
+									message: data.message,
+									resultInfo: { status: "error", message: "테스트 실패", color: "#dc3545" },
+									type: "output",
+								});
+								abortController.abort();
+							}
+						} catch {
+							// JSON 파싱 실패는 무시
+						}
+					},
+					onerror(err) {
+						if (abortController.signal.aborted) return;
+						throw err;
+					},
+				},
+			);
+
 		} catch (error: unknown) {
+			if (abortController.signal.aborted) return;
 			const message =
 				error instanceof Error ? error.message : "코드 제출에 실패했습니다.";
 			if (
@@ -615,14 +864,14 @@ export function useProblemSolve() {
 			setSubmissionResult({
 				status: "error",
 				message,
-				resultInfo: { status: "error", message: "제출 실패", color: "#dc3545" },
+				resultInfo: { status: "error", message: "테스트 실패", color: "#dc3545" },
 				type: "output",
 				outputList: undefined,
 			});
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [code, language, sectionId, problemId, clearSessionAfterSubmission, isAssignmentActive, navigate, userRole]);
+	}, [code, language, sectionId, problemId, isAssignmentActive, navigate, userRole]);
 
 	const handleHorizontalDragEnd = useCallback((sizes: number[]) => {
 		setHorizontalSizes(sizes);
@@ -790,6 +1039,9 @@ export function useProblemSolve() {
 		setCode,
 		submissionResult,
 		isSubmitting,
+		testcaseResults,
+		resetTestcaseResults,
+		totalTestcaseCount,
 		sessionSaveStatus,
 		codeLoadSource,
 		sessionCleared,
@@ -824,5 +1076,6 @@ export function useProblemSolve() {
 		handleUnsavedModalSave,
 		handleUnsavedModalSkip,
 		handleUnsavedModalCancel,
+		problemStatusById,
 	};
 }

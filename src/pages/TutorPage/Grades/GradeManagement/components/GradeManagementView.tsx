@@ -13,6 +13,8 @@ import GradeBulkInputModal from "./GradeBulkInputModal";
 import GradeStatsModal from "./GradeStatsModal";
 import GradePointsModal from "./GradePointsModal";
 import GradeProblemDetailModal from "./GradeProblemDetailModal";
+import GradeAssignmentReviewModal from "./GradeAssignmentReviewModal";
+import GradeQuizSubmissionLogModal from "./GradeQuizSubmissionLogModal";
 
 export default function GradeManagementView(d: GradeManagementHookReturn) {
 	const [totalOnly, setTotalOnly] = useState(false);
@@ -90,6 +92,19 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 		problemDetail,
 		openProblemDetail,
 		closeProblemDetailModal,
+		assignmentReviewTarget,
+		openAssignmentReview,
+		closeAssignmentReview,
+		handleAssignmentReviewSaved,
+		quizLogTarget,
+		quizLogRecords,
+		quizLogSelectedId,
+		quizLogCode,
+		quizLogListLoading,
+		quizLogCodeLoading,
+		openQuizSubmissionLog,
+		closeQuizSubmissionLog,
+		selectQuizLogSubmission,
 	} = d;
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 보기 모드·선택 과제/퀴즈 바뀔 때 헤더 문제 필터만 초기화
@@ -448,7 +463,9 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 						onViewCode={handleViewCodeForAssignment}
 						onSaveGradeForQuiz={handleSaveGradeForQuizCourse}
 						onViewCodeForQuiz={handleViewCodeForQuiz}
+						onOpenQuizSubmissionLog={openQuizSubmissionLog}
 						onProblemDetail={openProblemDetail}
+						onOpenAssignmentReview={openAssignmentReview}
 						totalOnly={totalOnly}
 						onToggleTotalOnly={setTotalOnly}
 						showLateOnly={showLateOnly}
@@ -470,6 +487,7 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 						onSaveGrade={handleSaveGradeForAssignment}
 						onViewCode={handleViewCodeForAssignment}
 						onProblemDetail={openProblemDetail}
+						onOpenAssignmentReview={openAssignmentReview}
 						totalOnly={totalOnly}
 						onToggleTotalOnly={setTotalOnly}
 						showLateOnly={showLateOnly}
@@ -490,6 +508,7 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 						comments={comments}
 						onSaveGradeForQuiz={handleSaveGradeForQuizCourse}
 						onViewCodeForQuiz={handleViewCodeForQuiz}
+						onOpenQuizSubmissionLog={openQuizSubmissionLog}
 						onProblemDetail={openProblemDetail}
 						totalOnly={totalOnly}
 						onToggleTotalOnly={setTotalOnly}
@@ -517,6 +536,7 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 										handleViewCodeForQuiz(selectedQuiz.id, userId, problemId)
 								: undefined
 						}
+						onOpenQuizSubmissionLog={openQuizSubmissionLog}
 						onProblemDetail={openProblemDetail}
 						totalOnly={totalOnly}
 						onToggleTotalOnly={setTotalOnly}
@@ -545,6 +565,8 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 						comments={comments}
 						handleSaveGrade={handleSaveGrade}
 						handleViewCode={handleViewCode}
+						onOpenAssignmentReview={openAssignmentReview}
+						assignmentIdForReview={selectedAssignment?.id ?? null}
 						onProblemDetail={openProblemDetail}
 						totalOnly={totalOnly}
 						onToggleTotalOnly={setTotalOnly}
@@ -617,6 +639,36 @@ export default function GradeManagementView(d: GradeManagementHookReturn) {
 					problemDetail={problemDetail}
 					onClose={closeProblemDetailModal}
 				/>
+
+				<GradeQuizSubmissionLogModal
+					show={quizLogTarget != null}
+					target={quizLogTarget}
+					records={quizLogRecords}
+					selectedSubmissionId={quizLogSelectedId}
+					code={quizLogCode}
+					listLoading={quizLogListLoading}
+					codeLoading={quizLogCodeLoading}
+					onClose={closeQuizSubmissionLog}
+					onSelectSubmission={selectQuizLogSubmission}
+				/>
+
+				{assignmentReviewTarget && sectionId ? (
+					<GradeAssignmentReviewModal
+						show
+						sectionId={Number(sectionId)}
+						assignmentId={assignmentReviewTarget.assignmentId}
+						userId={assignmentReviewTarget.userId}
+						problemId={assignmentReviewTarget.problemId}
+						studentName={assignmentReviewTarget.studentName}
+						problemTitle={assignmentReviewTarget.problemTitle}
+						initialComment={assignmentReviewTarget.initialComment}
+						initialRejected={assignmentReviewTarget.initialRejected}
+						submitted={assignmentReviewTarget.submitted}
+						displayScore={assignmentReviewTarget.displayScore}
+						onClose={closeAssignmentReview}
+						onSaved={handleAssignmentReviewSaved}
+					/>
+				) : null}
 
 				{isDownloadingCodeZip && (
 					<S.ModalOverlay>

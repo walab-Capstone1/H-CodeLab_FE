@@ -42,6 +42,7 @@ const ProblemSolvePage: React.FC = () => {
 			verticalSizes={hook.verticalSizes}
 			panelLayout={hook.panelLayout}
 			problems={hook.problems}
+			problemStatusById={hook.problemStatusById}
 			isProblemModalOpen={hook.isProblemModalOpen}
 			isProblemChanging={hook.isProblemChanging}
 			setIsProblemModalOpen={hook.setIsProblemModalOpen}
@@ -54,6 +55,9 @@ const ProblemSolvePage: React.FC = () => {
 			handleSelectOtherAssignment={hook.handleSelectOtherAssignment}
 			handleSubmit={hook.handleSubmit}
 			handleSubmitWithOutput={hook.handleSubmitWithOutput}
+			testcaseResults={hook.testcaseResults}
+			resetTestcaseResults={hook.resetTestcaseResults}
+			totalTestcaseCount={hook.totalTestcaseCount}
 			saveToSession={hook.saveToSession}
 			saveToBackend={hook.saveToBackend}
 			showSaveModal={hook.showSaveModal}

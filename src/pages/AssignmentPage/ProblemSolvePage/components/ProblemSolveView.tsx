@@ -11,6 +11,7 @@ import ProblemSelectModal from "../../../Course/CodingQuiz/CodingQuizSolvePage/P
 import AssignmentSelectModal from "./AssignmentSelectModal";
 import type { PanelKey } from "../hooks/useProblemSolve";
 import type { Problem } from "../types";
+import type { ProblemWorkStatus } from "../../../Course/CodingQuiz/CodingQuizSolvePage/types";
 import * as S from "../styles";
 
 interface ProblemSolveViewProps {
@@ -39,6 +40,7 @@ interface ProblemSolveViewProps {
 	verticalSizes: number[];
 	panelLayout: { left: PanelKey; topRight: PanelKey; bottomRight: PanelKey };
 	problems: Array<{ id: number; title: string; order: number }>;
+	problemStatusById: Record<number, ProblemWorkStatus>;
 	isProblemModalOpen: boolean;
 	isProblemChanging: boolean;
 	setIsProblemModalOpen: (open: boolean) => void;
@@ -55,6 +57,9 @@ interface ProblemSolveViewProps {
 	handleSelectOtherAssignment: (assignmentId: number) => void;
 	handleSubmit: () => void;
 	handleSubmitWithOutput: () => void;
+	testcaseResults: Array<{ index: number; result: string }> | null;
+	resetTestcaseResults: () => void;
+	totalTestcaseCount: number | null;
 	saveToSession: () => void;
 	saveToBackend: (showModal?: boolean) => void;
 	showSaveModal: boolean;
@@ -96,6 +101,7 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 		verticalSizes,
 		panelLayout,
 		problems,
+		problemStatusById,
 		isProblemModalOpen,
 		isProblemChanging,
 		setIsProblemModalOpen,
@@ -108,6 +114,9 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 		handleSelectOtherAssignment,
 		handleSubmit,
 		handleSubmitWithOutput,
+		testcaseResults,
+		resetTestcaseResults,
+		totalTestcaseCount,
 		saveToSession,
 		saveToBackend,
 		showSaveModal,
@@ -156,6 +165,9 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 			<ExecutionResult
 				submissionResult={submissionResult}
 				isSubmitting={isSubmitting}
+				testcaseResults={testcaseResults}
+				onResetTestcaseResults={resetTestcaseResults}
+				totalTestcaseCount={totalTestcaseCount}
 			/>
 		),
 	};
@@ -189,7 +201,7 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 					</S.SaveModal>
 				)}
 				<S.Header $theme={theme}>
-					<S.HeaderMain>
+					<S.HeaderBreadcrumbWrap>
 						<S.Breadcrumb>
 							<S.BreadcrumbLink
 								type="button"
@@ -213,54 +225,54 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 								{currentProblem.title}
 							</S.BreadcrumbCurrent>
 						</S.Breadcrumb>
-						<S.ProblemToolbarRow>
-							<S.PrevNextButton
-								type="button"
-								$theme={theme}
-								$disabled={problemNav.prevProblemId == null || isProblemChanging}
-								disabled={problemNav.prevProblemId == null || isProblemChanging}
-								onClick={() => {
-									if (problemNav.prevProblemId != null) {
-										handleProblemChange(problemNav.prevProblemId);
-									}
-								}}
-							>
-								‹ 이전 문제
-							</S.PrevNextButton>
-							{problemNav.indexLabel ? (
-								<S.ProblemIndexHint $theme={theme}>
-									문제 {problemNav.indexLabel}
-								</S.ProblemIndexHint>
-							) : null}
-							<S.PrevNextButton
-								type="button"
-								$theme={theme}
-								$disabled={problemNav.nextProblemId == null || isProblemChanging}
-								disabled={problemNav.nextProblemId == null || isProblemChanging}
-								onClick={() => {
-									if (problemNav.nextProblemId != null) {
-										handleProblemChange(problemNav.nextProblemId);
-									}
-								}}
-							>
-								다음 문제 ›
-							</S.PrevNextButton>
-							<S.ProblemNavigateButton
-								type="button"
-								$theme={theme}
-								onClick={() => setIsProblemModalOpen(true)}
-							>
-								문제 목록
-							</S.ProblemNavigateButton>
-							<S.ProblemNavigateButton
-								type="button"
-								$theme={theme}
-								onClick={() => setIsAssignmentModalOpen(true)}
-							>
-								과제 이동
-							</S.ProblemNavigateButton>
-						</S.ProblemToolbarRow>
-					</S.HeaderMain>
+					</S.HeaderBreadcrumbWrap>
+					<S.ProblemToolbarRow>
+						<S.PrevNextButton
+							type="button"
+							$theme={theme}
+							$disabled={problemNav.prevProblemId == null || isProblemChanging}
+							disabled={problemNav.prevProblemId == null || isProblemChanging}
+							onClick={() => {
+								if (problemNav.prevProblemId != null) {
+									handleProblemChange(problemNav.prevProblemId);
+								}
+							}}
+						>
+							‹ 이전 문제
+						</S.PrevNextButton>
+						{problemNav.indexLabel ? (
+							<S.ProblemIndexHint $theme={theme}>
+								문제 {problemNav.indexLabel}
+							</S.ProblemIndexHint>
+						) : null}
+						<S.PrevNextButton
+							type="button"
+							$theme={theme}
+							$disabled={problemNav.nextProblemId == null || isProblemChanging}
+							disabled={problemNav.nextProblemId == null || isProblemChanging}
+							onClick={() => {
+								if (problemNav.nextProblemId != null) {
+									handleProblemChange(problemNav.nextProblemId);
+								}
+							}}
+						>
+							다음 문제 ›
+						</S.PrevNextButton>
+						<S.ProblemNavigateButton
+							type="button"
+							$theme={theme}
+							onClick={() => setIsProblemModalOpen(true)}
+						>
+							문제 목록
+						</S.ProblemNavigateButton>
+						<S.ProblemNavigateButton
+							type="button"
+							$theme={theme}
+							onClick={() => setIsAssignmentModalOpen(true)}
+						>
+							과제 이동
+						</S.ProblemNavigateButton>
+					</S.ProblemToolbarRow>
 					<S.Controls>
 						<S.ThemeButton
 							type="button"
@@ -314,6 +326,7 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 					isOpen={isProblemModalOpen}
 					problems={problems}
 					currentProblemId={currentProblem.id ?? null}
+					problemStatusById={problemStatusById}
 					isChanging={isProblemChanging}
 					onClose={() => setIsProblemModalOpen(false)}
 					onSelectProblem={(pid) => {

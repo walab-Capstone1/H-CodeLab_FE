@@ -30,6 +30,17 @@ export type ProblemEditLocationState = {
 	assignmentId?: number;
 } | null;
 
+/**
+ * contenteditable에 innerHTML을 넣을지 결정할 때 사용.
+ * `<S, T>`, `<>` 같은 리터럴은 false — 실제 HTML 태그(br, p, strong 등)일 때만 true.
+ */
+function looksLikeImportedHtml(s: string): boolean {
+	if (!s || !s.includes("<")) return false;
+	return /<\s*(?:p|div|br\s*\/?|span|strong|em|b|i|u|h[1-6]|ul|ol|li|table|thead|tbody|tr|td|th|pre|code|blockquote|a\b)/i.test(
+		s,
+	);
+}
+
 export function useProblemEdit() {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -91,12 +102,10 @@ export function useProblemEdit() {
 			}
 			const rawDescription = parsedData?.description ?? problem?.description ?? "";
 			const descriptionText = (rawDescription || "")
-				.replace(/<[^>]*>/g, "")
 				.replace(/\r\n/g, "\n")
 				.replace(/\r/g, "\n")
 				.trim();
 			const parsed = parseDescriptionSections(descriptionText);
-			const description = parsed.mainDescription;
 			const mainDescriptionText = parsed.mainDescription;
 			let timeLimit = "";
 			if (parsedData?.timeLimit != null) {
@@ -164,8 +173,7 @@ export function useProblemEdit() {
 			setEnableFullEdit(false);
 			setTimeout(() => {
 				if (descriptionRef.current) {
-					const isHTML = /<[^>]+>/.test(mainDescriptionText);
-					if (isHTML) {
+					if (looksLikeImportedHtml(mainDescriptionText)) {
 						descriptionRef.current.innerHTML = mainDescriptionText;
 					} else {
 						descriptionRef.current.textContent = mainDescriptionText;
@@ -192,8 +200,7 @@ export function useProblemEdit() {
 			isInitialLoad &&
 			!loading
 		) {
-			const isHTML = /<[^>]+>/.test(formData.description);
-			if (isHTML) {
+			if (looksLikeImportedHtml(formData.description)) {
 				descriptionRef.current.innerHTML = formData.description;
 			} else {
 				descriptionRef.current.textContent =
@@ -205,8 +212,7 @@ export function useProblemEdit() {
 
 	useEffect(() => {
 		if (enableFullEdit && descriptionRef.current && formData.description) {
-			const isHTML = /<[^>]+>/.test(formData.description);
-			if (isHTML) {
+			if (looksLikeImportedHtml(formData.description)) {
 				descriptionRef.current.innerHTML = formData.description;
 			} else {
 				descriptionRef.current.textContent =
@@ -258,7 +264,7 @@ export function useProblemEdit() {
 							.replace(/\n/g, "<br>")
 							.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
 							.replace(/\*(.*?)\*/g, "<em>$1</em>");
-						const descText = parsedData.description.replace(/<[^>]*>/g, "");
+						const descText = parsedData.description;
 						setFormData((prev) => ({
 							...prev,
 							description: htmlDesc,
@@ -629,57 +635,58 @@ export function useProblemEdit() {
 			e.preventDefault();
 			if (!problemId) return;
 
-			const strictNow = Boolean(formData.strictWhitespaceGrading);
-			const strictChanged = strictNow !== originalStrictWhitespaceRef.current;
-			const useFullPayload = enableFullEdit || strictChanged;
+		const strictNow = Boolean(formData.strictWhitespaceGrading);
+		const strictChanged = strictNow !== originalStrictWhitespaceRef.current;
+		const useFullPayload = enableFullEdit || strictChanged;
 
-			if (useFullPayload) {
-				const hasDescription =
-					(formData.description?.trim() || formData.descriptionText?.trim()) ?? "";
-				if (!hasDescription) {
-					alert("문제 설명을 입력해 주세요.");
-					return;
-				}
-				const hasTestcases =
-					parsedTestCases.some(
-						(tc) => tc.input?.trim() && tc.output?.trim(),
-					) ||
-					formData.testcases.some(
-						(tc) => tc.input?.trim() && tc.output?.trim(),
-					);
-				if (!hasTestcases) {
-					alert("테스트케이스가 최소 1개 이상 필요합니다. (입력/출력 쌍 모두 있어야 합니다)");
-					return;
-				}
-				const incomplete = validateTestCases();
-				if (incomplete.length > 0) {
-					const message = incomplete
-						.map((tc) => `- ${tc.name}: ${tc.missing} 파일이 없습니다`)
-						.join("\n");
-					alert(
-						`다음 테스트케이스에 입력/출력이 비어 있습니다:\n\n${message}\n\n모든 테스트케이스를 완성한 후 제출해 주세요.`,
-					);
-					return;
-				}
+		if (useFullPayload) {
+			const hasDescription =
+				(formData.description?.trim() || formData.descriptionText?.trim()) ?? "";
+			if (!hasDescription) {
+				alert("문제 설명을 입력해 주세요.");
+				return;
 			}
+			const hasTestcases =
+				parsedTestCases.some(
+					(tc) => tc.input?.trim() && tc.output?.trim(),
+				) ||
+				formData.testcases.some(
+					(tc) => tc.input?.trim() && tc.output?.trim(),
+				);
+			if (!hasTestcases) {
+				alert("테스트케이스가 최소 1개 이상 필요합니다. (입력/출력 쌍 모두 있어야 합니다)");
+				return;
+			}
+			const incomplete = validateTestCases();
+			if (incomplete.length > 0) {
+				const message = incomplete
+					.map((tc) => `- ${tc.name}: ${tc.missing} 파일이 없습니다`)
+					.join("\n");
+				alert(
+					`다음 테스트케이스에 입력/출력이 비어 있습니다:\n\n${message}\n\n모든 테스트케이스를 완성한 후 제출해 주세요.`,
+				);
+				return;
+			}
+		}
 
-			setSubmitting(true);
-			setError(null);
-			try {
-				const submitFormData = new FormData();
-				submitFormData.append("title", formData.title);
-				submitFormData.append("tags", JSON.stringify(formData.tags));
-				submitFormData.append("difficulty", formData.difficulty?.trim() || "1");
-				submitFormData.append(
-					"strictWhitespaceGrading",
-					formData.strictWhitespaceGrading ? "true" : "false",
-				);
-				submitFormData.append(
-					"metadataUpdated",
-					useFullPayload ? "false" : "true",
-				);
-				if (useFullPayload) {
-					submitFormData.append("description", getFullDescriptionForBackend());
+		setSubmitting(true);
+		setError(null);
+		try {
+			const submitFormData = new FormData();
+			submitFormData.append("title", formData.title);
+			submitFormData.append("tags", JSON.stringify(formData.tags));
+			submitFormData.append("difficulty", formData.difficulty?.trim() || "1");
+			submitFormData.append(
+				"strictWhitespaceGrading",
+				formData.strictWhitespaceGrading ? "true" : "false",
+			);
+			submitFormData.append(
+				"metadataUpdated",
+				useFullPayload ? "false" : "true",
+			);
+			// description은 항상 포함 (DOMjudge 재업로드 없이 DB description 갱신)
+			submitFormData.append("description", getFullDescriptionForBackend());
+			if (useFullPayload) {
 					submitFormData.append("inputFormat", formData.inputFormat);
 					submitFormData.append("outputFormat", formData.outputFormat);
 					const timeLimit = formData.timeLimit || originalTimeLimit || "1";

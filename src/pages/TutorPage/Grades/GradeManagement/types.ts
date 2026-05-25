@@ -43,6 +43,10 @@ export interface ProblemGrade {
 	passedTestCases?: number | null;
 	/** 전체 테스트케이스 수 */
 	totalTestCases?: number | null;
+	/** 강사 코멘트(학생에게도 표시) */
+	comment?: string | null;
+	/** 반려 태그 */
+	rejected?: boolean | null;
 }
 
 /** 학생별 성적 (과제/퀴즈 성적 API) */
@@ -137,4 +141,34 @@ export interface AllQuizProblemsEntry {
 export interface CodeResponse {
 	code?: string;
 	codeString?: string;
+}
+
+/** 코딩테스트 제출 로그 (튜터 submissions API) */
+export interface QuizSubmissionRecord {
+	submissionId: number;
+	userId: number;
+	studentId: string;
+	studentName: string;
+	problemId: number;
+	problemTitle: string;
+	submittedAt: string;
+	result: string;
+	language: string;
+}
+
+export interface QuizSubmissionLogTarget {
+	quizId: number;
+	quizTitle?: string;
+	userId: number;
+	problemId: number;
+	studentName: string;
+	problemTitle: string;
+}
+
+export interface QuizSubmissionLogCode {
+	code: string;
+	result: string;
+	submittedAt: string;
+	language?: string;
+	problemTitle?: string;
 }

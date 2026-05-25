@@ -194,6 +194,43 @@ class APIService {
 		});
 	}
 
+	/**
+	 * 과제 비동기 제출: DOMjudge에 코드 제출 후 submissionDbId를 즉시 반환 (~1초).
+	 * 반환된 submissionDbId로 getAssignmentResult()를 폴링해 결과를 조회.
+	 */
+	async submitCodeAsync(
+		sectionId: number | string,
+		problemId: number | string,
+		code: string,
+		language: string,
+	): Promise<{ submissionDbId: number; submissionId: string; problemId: number; sectionId: number; language: string; submittedAt: string }> {
+		return await this.request("/submissions/submit", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				problemId: Number.parseInt(String(problemId)),
+				sectionId: Number.parseInt(String(sectionId)),
+				language,
+				codeString: code,
+			}),
+		});
+	}
+
+	/**
+	 * 과제 채점 결과 조회: 클라이언트가 1.5초 간격으로 폴링.
+	 * 채점 완료 → 결과 객체 반환
+	 * 채점 중   → null 반환 (서버 204 No Content)
+	 */
+	async getAssignmentResult(submissionDbId: number): Promise<any | null> {
+		const response = await this.request(`/submissions/result/${submissionDbId}`, {
+			method: "GET",
+		});
+		// 204 No Content → handleResponse가 빈 문자열("") 반환 → null로 변환
+		return response || null;
+	}
+
 	async submitCodeAndGetOutput(
 		sectionId: number | string,
 		problemId: number | string,
@@ -201,6 +238,30 @@ class APIService {
 		language: string,
 	): Promise<any> {
 		return await this.request("/submissions/submitAndGetResult/output", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				problemId: Number.parseInt(String(problemId)),
+				sectionId: Number.parseInt(String(sectionId)),
+				language,
+				codeString: code,
+			}),
+		});
+	}
+
+	/**
+	 * 테스트하기 비동기 제출: DOMjudge에만 제출 후 sessionKey를 즉시 반환 (~1초).
+	 * DB에 저장하지 않으며, 반환된 sessionKey로 SSE /test/stream/{sessionKey} 에 연결해 output 수신.
+	 */
+	async testSubmitAsync(
+		sectionId: number | string,
+		problemId: number | string,
+		code: string,
+		language: string,
+	): Promise<{ sessionKey: string; sectionId: number; problemId: number; language: string; submittedAt: string }> {
+		return await this.request("/submissions/test/submit", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -710,6 +771,24 @@ class APIService {
 	): Promise<any> {
 		return await this.request(
 			`/sections/${sectionId}/quizzes/${quizId}/submission-stats`,
+		);
+	}
+
+	/**
+	 * 퀴즈 제출 DomJudge → DB 일괄 동기화 (튜터, 종료된 코딩테스트 보정).
+	 */
+	async syncQuizSubmissionsFromDomjudge(
+		sectionId: number | string,
+		quizId: number | string,
+	): Promise<{
+		totalCandidates: number;
+		synced: number;
+		stillPending: number;
+		failed: number;
+	}> {
+		return await this.request(
+			`/sections/${sectionId}/quizzes/${quizId}/submissions/sync-from-domjudge`,
+			{ method: "POST" },
 		);
 	}
 

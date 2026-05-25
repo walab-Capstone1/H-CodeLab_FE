@@ -16,6 +16,9 @@ import type {
 	AllQuizProblemsEntry,
 	CodeResponse,
 	ProblemGrade,
+	QuizSubmissionLogCode,
+	QuizSubmissionLogTarget,
+	QuizSubmissionRecord,
 } from "../types";
 import { formatLateDurationForGradeCsv } from "../utils/gradeExportLateDuration";
 
@@ -79,6 +82,29 @@ export function useGradeManagement() {
 		memoryLimit?: number;
 	} | null>(null);
 
+	/** 과제: 코드·코멘트·반려 모달 */
+	const [assignmentReviewTarget, setAssignmentReviewTarget] = useState<{
+		assignmentId: number;
+		userId: number;
+		problemId: number;
+		studentName: string;
+		problemTitle: string;
+		initialComment: string;
+		initialRejected: boolean;
+		submitted: boolean;
+		displayScore?: number | null;
+	} | null>(null);
+
+	/** 코딩테스트: 학생·문제별 전체 제출 로그 모달 */
+	const [quizLogTarget, setQuizLogTarget] = useState<QuizSubmissionLogTarget | null>(
+		null,
+	);
+	const [quizLogRecords, setQuizLogRecords] = useState<QuizSubmissionRecord[]>([]);
+	const [quizLogSelectedId, setQuizLogSelectedId] = useState<number | null>(null);
+	const [quizLogCode, setQuizLogCode] = useState<QuizSubmissionLogCode | null>(null);
+	const [quizLogListLoading, setQuizLogListLoading] = useState(false);
+	const [quizLogCodeLoading, setQuizLogCodeLoading] = useState(false);
+
 	const fetchQuizGrades = useCallback(async () => {
 		if (!selectedQuiz || !sectionId) return;
 		try {
@@ -126,6 +152,12 @@ export function useGradeManagement() {
 					const key = `${student.userId}-${problem.problemId}`;
 					if (problem.score !== null && problem.score !== undefined) {
 						initialInputs[key] = problem.score;
+					}
+					if (
+						typeof problem.comment === "string" &&
+						problem.comment.length > 0
+					) {
+						initialComments[key] = problem.comment;
 					}
 				}
 			}
@@ -609,6 +641,90 @@ export function useGradeManagement() {
 		[sectionId],
 	);
 
+	const loadQuizLogCode = useCallback(
+		async (quizId: number, submissionId: number) => {
+			if (!sectionId) return;
+			setQuizLogCodeLoading(true);
+			try {
+				const response = await APIService.getQuizSubmissionCode(
+					sectionId,
+					quizId,
+					submissionId,
+				);
+				const data = response?.data ?? response;
+				setQuizLogCode({
+					code: data?.code ?? "",
+					result: data?.result ?? "",
+					submittedAt: data?.submittedAt ?? "",
+					language: data?.language ?? "",
+					problemTitle: data?.problemTitle ?? "",
+				});
+			} catch (error) {
+				console.error("제출 코드 조회 실패:", error);
+				setQuizLogCode(null);
+			} finally {
+				setQuizLogCodeLoading(false);
+			}
+		},
+		[sectionId],
+	);
+
+	const openQuizSubmissionLog = useCallback(
+		async (ctx: QuizSubmissionLogTarget) => {
+			if (!sectionId) return;
+			setQuizLogTarget(ctx);
+			setQuizLogRecords([]);
+			setQuizLogSelectedId(null);
+			setQuizLogCode(null);
+			setQuizLogListLoading(true);
+			try {
+				const response = await APIService.getQuizSubmissions(
+					sectionId,
+					ctx.quizId,
+					{
+						userId: ctx.userId,
+						problemId: ctx.problemId,
+						page: 0,
+						size: 100,
+					},
+				);
+				const data = response?.data ?? response;
+				const content = (data?.content ?? []) as QuizSubmissionRecord[];
+				setQuizLogRecords(content);
+				if (content.length > 0) {
+					const firstId = content[0].submissionId;
+					setQuizLogSelectedId(firstId);
+					await loadQuizLogCode(ctx.quizId, firstId);
+				}
+			} catch (error) {
+				console.error("제출 로그 조회 실패:", error);
+				alert("제출 기록을 불러올 수 없습니다.");
+				setQuizLogTarget(null);
+			} finally {
+				setQuizLogListLoading(false);
+			}
+		},
+		[sectionId, loadQuizLogCode],
+	);
+
+	const closeQuizSubmissionLog = useCallback(() => {
+		setQuizLogTarget(null);
+		setQuizLogRecords([]);
+		setQuizLogSelectedId(null);
+		setQuizLogCode(null);
+		setQuizLogListLoading(false);
+		setQuizLogCodeLoading(false);
+	}, []);
+
+	const selectQuizLogSubmission = useCallback(
+		async (submissionId: number) => {
+			if (!quizLogTarget || submissionId === quizLogSelectedId) return;
+			setQuizLogSelectedId(submissionId);
+			await loadQuizLogCode(quizLogTarget.quizId, submissionId);
+		},
+		[quizLogTarget, quizLogSelectedId, loadQuizLogCode],
+	);
+
 	const openProblemDetail = useCallback(async (problemId: number) => {
 		try {
 			const response = await APIService.getProblemInfo(problemId);
@@ -646,6 +762,46 @@ export function useGradeManagement() {
 		setShowProblemDetailModal(false);
 		setProblemDetail(null);
 	}, []);
+
+	const openAssignmentReview = useCallback(
+		(ctx: {
+			assignmentId: number;
+			userId: number;
+			problemId: number;
+			studentName: string;
+			problemTitle: string;
+			problem?: ProblemGrade | null;
+		}) => {
+			if (!sectionId) return;
+			const key = `${ctx.userId}-${ctx.problemId}`;
+			setAssignmentReviewTarget({
+				assignmentId: ctx.assignmentId,
+				userId: ctx.userId,
+				problemId: ctx.problemId,
+				studentName: ctx.studentName,
+				problemTitle: ctx.problemTitle,
+				initialComment: ctx.problem?.comment ?? comments[key] ?? "",
+				initialRejected: Boolean(ctx.problem?.rejected),
+				submitted: Boolean(ctx.problem?.submitted),
+				displayScore:
+					ctx.problem?.score !== undefined && ctx.problem?.score !== null
+						? ctx.problem.score
+						: null,
+			});
+		},
+		[sectionId, comments],
+	);
+
+	const closeAssignmentReview = useCallback(() => {
+		setAssignmentReviewTarget(null);
+	}, []);
+
+	const handleAssignmentReviewSaved = useCallback(async () => {
+		if (selectedAssignment && sectionId) {
+			await fetchGrades();
+		}
+		await fetchCourseGrades();
+	}, [selectedAssignment, sectionId, fetchGrades, fetchCourseGrades]);
 
 	const handleSaveGradeForQuiz = useCallback(
 		async (
@@ -1954,6 +2110,19 @@ export function useGradeManagement() {
 		problemDetail,
 		openProblemDetail,
 		closeProblemDetailModal,
+		assignmentReviewTarget,
+		openAssignmentReview,
+		closeAssignmentReview,
+		handleAssignmentReviewSaved,
+		quizLogTarget,
+		quizLogRecords,
+		quizLogSelectedId,
+		quizLogCode,
+		quizLogListLoading,
+		quizLogCodeLoading,
+		openQuizSubmissionLog,
+		closeQuizSubmissionLog,
+		selectQuizLogSubmission,
 	};
 }
 
