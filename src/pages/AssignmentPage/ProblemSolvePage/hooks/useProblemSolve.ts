@@ -13,6 +13,7 @@ import {
 } from "../utils/resultMappings";
 import type { Problem, SubmissionResultState } from "../types";
 import type { ProblemWorkStatus } from "../../../Course/CodingQuiz/CodingQuizSolvePage/types";
+import { useTaAssistant } from "../../../../features/ta-assistant/useTaAssistant";
 
 export type TestcaseResult = { index: number; result: string };
 
@@ -1025,6 +1026,18 @@ export function useProblemSolve() {
 	// 서버에 저장되지 않은 변경사항 여부 (beforeunload 경고 및 UI 표시용)
 	const hasUnsavedChanges = code !== lastSavedCodeRef.current && code !== getDefaultCode(language);
 
+	const taAssistant = useTaAssistant(
+		{
+			sourceCode: code,
+			language,
+			problemId: currentProblem.id,
+			problemTitle: currentProblem.title,
+			problemDescription,
+			submissionResult,
+		},
+		isSubmitting,
+	);
+
 	return {
 		sectionId,
 		assignmentId,
@@ -1077,5 +1090,6 @@ export function useProblemSolve() {
 		handleUnsavedModalSkip,
 		handleUnsavedModalCancel,
 		problemStatusById,
+		taAssistant,
 	};
 }

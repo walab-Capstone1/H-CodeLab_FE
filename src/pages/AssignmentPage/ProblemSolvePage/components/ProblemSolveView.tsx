@@ -9,6 +9,8 @@ import ExecutionResult from "../../../Course/CodingQuiz/CodingQuizSolvePage/Exec
 import DraggablePanel from "../../../Course/CodingQuiz/CodingQuizSolvePage/DraggablePanel";
 import ProblemSelectModal from "../../../Course/CodingQuiz/CodingQuizSolvePage/ProblemSelectModal";
 import AssignmentSelectModal from "./AssignmentSelectModal";
+import TaAssistantPanel from "../../../../features/ta-assistant/components/TaAssistantPanel";
+import TaAssistantButton from "../../../../features/ta-assistant/components/TaAssistantButton";
 import type { PanelKey } from "../hooks/useProblemSolve";
 import type { Problem } from "../types";
 import type { ProblemWorkStatus } from "../../../Course/CodingQuiz/CodingQuizSolvePage/types";
@@ -77,6 +79,17 @@ interface ProblemSolveViewProps {
 	handleUnsavedModalSave: () => void;
 	handleUnsavedModalSkip: () => void;
 	handleUnsavedModalCancel: () => void;
+	taAssistant: {
+		isOpen: boolean;
+		openAssistant: () => void;
+		closeAssistant: () => void;
+		messages: import("../../../../features/ta-assistant/types").TaMessage[];
+		isLoading: boolean;
+		error: string | null;
+		canUseAssistant: boolean;
+		sendMessage: (prompt?: string) => Promise<void>;
+		retryAnalysis: () => void;
+	};
 }
 
 const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
@@ -130,6 +143,7 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 		handleUnsavedModalSave,
 		handleUnsavedModalSkip,
 		handleUnsavedModalCancel,
+		taAssistant,
 	} = props;
 	const navigate = useNavigate();
 
@@ -274,6 +288,10 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 						</S.ProblemNavigateButton>
 					</S.ProblemToolbarRow>
 					<S.Controls>
+						<TaAssistantButton
+							compact
+							onClick={taAssistant.openAssistant}
+						/>
 						<S.ThemeButton
 							type="button"
 							$active={theme === "light"}
@@ -378,6 +396,16 @@ const ProblemSolveView: React.FC<ProblemSolveViewProps> = (props) => {
 						</S.UnsavedModalCard>
 					</S.UnsavedModalOverlay>
 				)}
+				<TaAssistantPanel
+					isOpen={taAssistant.isOpen}
+					theme={theme}
+					messages={taAssistant.messages}
+					isLoading={taAssistant.isLoading}
+					error={taAssistant.error}
+					onClose={taAssistant.closeAssistant}
+					onSendMessage={taAssistant.sendMessage}
+					onRetry={taAssistant.retryAnalysis}
+				/>
 			</S.PageWrapper>
 		</DndProvider>
 	);
