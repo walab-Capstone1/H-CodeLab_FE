@@ -1,7 +1,9 @@
-import type { TaAnalyzeRequest, TaAnalyzeResponse } from "../features/ta-assistant/types";
+import type {
+	TaAnalyzeRequest,
+	TaAnalyzeResponse,
+} from "../features/ta-assistant/types";
 
-const DEFAULT_TA_API_URL =
-	"https://llm-codelab-1041177178522.asia-northeast3.run.app/v1";
+const DEFAULT_TA_API_URL = "https://hj.walab.info/";
 
 class TaAssistantService {
 	private baseURL: string;
