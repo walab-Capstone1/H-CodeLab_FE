@@ -13,6 +13,7 @@ import {
 } from "../utils/resultMappings";
 import type { Problem, SubmissionResultState } from "../types";
 import type { ProblemWorkStatus } from "../../../Course/CodingQuiz/CodingQuizSolvePage/types";
+import { useTaAssistant } from "../../../../features/ta-assistant/useTaAssistant";
 
 export type TestcaseResult = { index: number; result: string };
 
@@ -504,6 +505,20 @@ export function useProblemSolve() {
 		}, 5 * 60 * 1000);
 		return () => clearInterval(interval);
 	}, [saveToBackend]);
+
+	// 문제/과제 이동 시 이전 채점·테스트 결과 및 진행 중 폴링/SSE 정리
+	useEffect(() => {
+		void problemId;
+		void assignmentId;
+		submissionPollingCancelledRef.current = true;
+		sseAbortControllerRef.current?.abort();
+		sseAbortControllerRef.current = null;
+		testcaseOutputAccumRef.current = [];
+		setSubmissionResult(null);
+		setTestcaseResults(null);
+		setTotalTestcaseCount(null);
+		setIsSubmitting(false);
+	}, [problemId, assignmentId]);
 
 	// 언마운트 시 진행 중인 폴링/SSE 취소
 	useEffect(() => {
@@ -1011,6 +1026,18 @@ export function useProblemSolve() {
 	// 서버에 저장되지 않은 변경사항 여부 (beforeunload 경고 및 UI 표시용)
 	const hasUnsavedChanges = code !== lastSavedCodeRef.current && code !== getDefaultCode(language);
 
+	const taAssistant = useTaAssistant(
+		{
+			sourceCode: code,
+			language,
+			problemId: currentProblem.id,
+			problemTitle: currentProblem.title,
+			problemDescription,
+			submissionResult,
+		},
+		isSubmitting,
+	);
+
 	return {
 		sectionId,
 		assignmentId,
@@ -1063,5 +1090,6 @@ export function useProblemSolve() {
 		handleUnsavedModalSkip,
 		handleUnsavedModalCancel,
 		problemStatusById,
+		taAssistant,
 	};
 }

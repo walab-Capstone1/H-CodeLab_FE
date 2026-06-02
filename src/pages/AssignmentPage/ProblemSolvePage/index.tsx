@@ -71,6 +71,7 @@ const ProblemSolvePage: React.FC = () => {
 			handleUnsavedModalSave={hook.handleUnsavedModalSave}
 			handleUnsavedModalSkip={hook.handleUnsavedModalSkip}
 			handleUnsavedModalCancel={hook.handleUnsavedModalCancel}
+			taAssistant={hook.taAssistant}
 		/>
 	);
 };
