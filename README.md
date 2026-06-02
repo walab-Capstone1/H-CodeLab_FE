@@ -115,10 +115,6 @@ npm start
 
 프로젝트 루트에 `.env` 파일을 생성합니다.
 
-```bash
-REACT_APP_API_URL=http://localhost:8080/api
-REACT_APP_TA_API_URL=https://llm-codelab-1041177178522.asia-northeast3.run.app/v1
-```
 
 환경 변수를 설정하지 않으면 API는 기본값 `https://hcl.walab.info/api`, AI 튜터는 Cloud Run `https://llm-codelab-1041177178522.asia-northeast3.run.app/v1` 로 요청합니다.
 
