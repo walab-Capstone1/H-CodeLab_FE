@@ -111,12 +111,6 @@ npm start
 
 개발 서버는 기본적으로 `http://localhost:3000` 에서 실행됩니다.
 
-### 환경 변수
-
-프로젝트 루트에 `.env` 파일을 생성합니다.
-
-
-환경 변수를 설정하지 않으면 API는 기본값 `https://hcl.walab.info/api`, AI 튜터는 Cloud Run `https://llm-codelab-1041177178522.asia-northeast3.run.app/v1` 로 요청합니다.
 
 ### Backend 연동
 
