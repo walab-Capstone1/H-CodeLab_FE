@@ -98,7 +98,7 @@ export default function LoginPageView(d: LoginPageHookReturn) {
 								회원가입
 							</S.SignupButton>
 
-							<S.PasswordResetLink href="#">
+							<S.PasswordResetLink as={Link} to="/forgot-password">
 								비밀번호 재설정
 							</S.PasswordResetLink>
 						</S.LoginForm>
