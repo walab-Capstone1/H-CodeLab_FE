@@ -12,6 +12,8 @@ import AuthCallback from "./pages/Auth/AuthCallback";
 import SignUpPageSocial from "./pages/Auth/SignUpPageSocial";
 import SignupEmailPage from "./pages/Auth/SignupEmailPage";
 import EnrollPage from "./pages/Auth/EnrollPage";
+import ForgotPasswordPage from "./pages/Auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/Auth/ResetPasswordPage";
 // Course (수강 / 강의)
 import ClassPage from "./pages/Course/ClassPage";
 import CourseDashboardPage from "./pages/Course/Dashboard/CourseDashboardPage";
@@ -78,6 +80,8 @@ const App: React.FC = () => {
 				<Routes>
 					<Route path="/" element={<IndexPage />} />
 					<Route path="/login" element={<LoginPage />} />
+					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+					<Route path="/reset-password" element={<ResetPasswordPage />} />
 					<Route path="/index" element={<IndexPage />} />
 					<Route path="/courses" element={<ClassPage />} />
 					<Route path="/dashboard" element={<CourseDashboardPage />} />
