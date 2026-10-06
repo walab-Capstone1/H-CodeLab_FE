@@ -389,8 +389,13 @@ class APIService {
 		return await this.request(`/problems/${problemId}`);
 	}
 
-	async getAllProblems(): Promise<any> {
-		return await this.request("/problems");
+	async getAllProblems(params?: { myOnly?: boolean }): Promise<any> {
+		const query = params?.myOnly ? "?myOnly=true" : "";
+		return await this.request(`/problems${query}`);
+	}
+
+	async getMyProblems(): Promise<any> {
+		return await this.getAllProblems({ myOnly: true });
 	}
 
 	/**
@@ -719,6 +724,15 @@ class APIService {
 		userId: number | string,
 	): Promise<any> {
 		return await this.request(`/sections/${sectionId}/tutors/${userId}`, {
+			method: "DELETE",
+		});
+	}
+
+	async expelStudentFromSection(
+		sectionId: number | string,
+		userId: number | string,
+	): Promise<any> {
+		return await this.request(`/sections/${sectionId}/students/${userId}`, {
 			method: "DELETE",
 		});
 	}

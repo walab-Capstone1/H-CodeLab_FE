@@ -2,6 +2,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import * as S from "../styles";
 import type { SampleInput } from "../types";
 
@@ -43,40 +44,28 @@ function MarkdownCode({
 	return <S.PreviewInlineCode>{children}</S.PreviewInlineCode>;
 }
 
-/**
- * contentEditable에서 Enter로 입력한 단일 줄바꿈(\n)을
- * 마크다운 문단 구분(\n\n)으로 변환합니다.
- * 코드 블록(``` ... ```) 내부는 건드리지 않습니다.
- */
-/**
- * 코드 블록 밖에서:
- *  - \n 1번  → "  \n"  (마크다운 hard break = <br>)
- *  - \n 2번  → 단락 분리 (그대로)
- *  - \n 3번+ → 단락 분리 + 빈 줄(\u00A0 단락)을 여분만큼 삽입
- *              → 에디터의 빈 줄 수와 미리보기가 비슷하게 맞춰집니다.
- * 코드 블록(``` ... ```) 내부는 건드리지 않습니다.
- */
 const NBSP = "\u00A0"; // non-breaking space
 
 function prepareMarkdown(text: string): string {
+	if (!text) return "";
 	return text
 		.split(/(```[\s\S]*?```)/g)
 		.map((part, i) => {
 			if (i % 2 === 1) return part; // 코드 블록 내부 → 그대로
-			return (
-				part
-					// Step 1: 연속 2개 이상 \n 처리
-					//   - \n\n     → 그대로 (단락 분리)
-					//   - \n\n\n   → \n\n + NBSP 단락
-					//   - \n\n\n\n → \n\n + NBSP 단락 × 2 ...
-					.replace(/\n{2,}/g, (match) => {
-						const extra = match.length - 2;
-						if (extra === 0) return "\n\n";
-						return "\n\n" + `${NBSP}\n\n`.repeat(extra);
-					})
-					// Step 2: 남은 단일 \n → hard break (  \n)
-					.replace(/(?<!\n)\n(?!\n)/g, "  \n")
-			);
+			// 마크다운 테이블 행 (| ... |) 보존
+			return part
+				.split(/((?:^[ \t]*\|[^\n\r]*\|[ \t]*(?:\r?\n|$))+)/gm)
+				.map((subPart, j) => {
+					if (j % 2 === 1) return subPart; // 테이블 블록 내부 → 그대로
+					return subPart
+						.replace(/\n{2,}/g, (match) => {
+							const extra = match.length - 2;
+							if (extra === 0) return "\n\n";
+							return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+						})
+						.replace(/(?<!\n)\n(?!\n)/g, "  \n");
+				})
+				.join("");
 		})
 		.join("");
 }
@@ -109,9 +98,9 @@ const ProblemPreview: React.FC<ProblemPreviewProps> = ({
 		return <S.PreviewEmpty>문제 설명을 입력하세요</S.PreviewEmpty>;
 	}
 
-	// 본문에 "## 입력 형식" 이하가 포함돼 있으면 미리보기에서는 제거 (전용 필드에서만 한 번 표시)
+	// 하단 전용 '입력 형식' 필드에 내용이 있을 때만 본문에서 '## 입력 형식' 이하를 분리 (데이터 유실 방지)
 	const descOnly =
-		description && description.includes("입력 형식")
+		inputFormat && description && description.includes("입력 형식")
 			? (() => {
 					const n = description.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 					const m = n.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
@@ -121,60 +110,71 @@ const ProblemPreview: React.FC<ProblemPreviewProps> = ({
 
 	return (
 		<div>
-	
-		{descOnly && (
-		<S.PreviewSection>
-			<ReactMarkdown components={mdComponents} rehypePlugins={[rehypeRaw]}>
-				{prepareMarkdown(descOnly)}
-			</ReactMarkdown>
-		</S.PreviewSection>
-	)}
+			{descOnly && (
+				<S.PreviewSection>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(descOnly)}
+					</ReactMarkdown>
+				</S.PreviewSection>
+			)}
 
-	{!descriptionOnlyMode && inputFormat && (
-		<S.PreviewSection>
-			<S.PreviewH2>입력</S.PreviewH2>
-			<ReactMarkdown components={mdComponents} rehypePlugins={[rehypeRaw]}>
-				{prepareMarkdown(inputFormat)}
-			</ReactMarkdown>
-		</S.PreviewSection>
-	)}
+			{!descriptionOnlyMode && inputFormat && (
+				<S.PreviewSection>
+					<S.PreviewH2>입력 형식</S.PreviewH2>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(inputFormat)}
+					</ReactMarkdown>
+				</S.PreviewSection>
+			)}
 
-	{!descriptionOnlyMode && outputFormat && (
-		<S.PreviewSection>
-			<S.PreviewH2>출력</S.PreviewH2>
-			<ReactMarkdown components={mdComponents} rehypePlugins={[rehypeRaw]}>
-				{prepareMarkdown(outputFormat)}
-			</ReactMarkdown>
-		</S.PreviewSection>
-	)}
+			{!descriptionOnlyMode && outputFormat && (
+				<S.PreviewSection>
+					<S.PreviewH2>출력 형식</S.PreviewH2>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(outputFormat)}
+					</ReactMarkdown>
+				</S.PreviewSection>
+			)}
 
 			{!descriptionOnlyMode && sampleInputs && sampleInputs.some((s) => s.input || s.output) && (
 				<S.PreviewSection>
 					<S.PreviewH2>예제</S.PreviewH2>
-				{sampleInputs.map((sample, index) => {
-					if (!sample.input && !sample.output) return null;
-					return (
-					<div key={index}>
-						{sample.input && (
-								<div>
-									<S.PreviewH3>입력 {index + 1}</S.PreviewH3>
-									<S.PreviewCodeBlock>
-										<code>{sample.input}</code>
-									</S.PreviewCodeBlock>
-								</div>
-							)}
-							{sample.output && (
-								<div>
-									<S.PreviewH3>출력 {index + 1}</S.PreviewH3>
-									<S.PreviewCodeBlock>
-										<code>{sample.output}</code>
-									</S.PreviewCodeBlock>
-								</div>
-							)}
-					</div>
-				);
-				})}
-			</S.PreviewSection>
+					{sampleInputs.map((sample, index) => {
+						if (!sample.input && !sample.output) return null;
+						return (
+							<div key={index}>
+								{sample.input && (
+									<div>
+										<S.PreviewH3>예제 입력 {index + 1}</S.PreviewH3>
+										<S.PreviewCodeBlock>
+											<code>{sample.input}</code>
+										</S.PreviewCodeBlock>
+									</div>
+								)}
+								{sample.output && (
+									<div>
+										<S.PreviewH3>예제 출력 {index + 1}</S.PreviewH3>
+										<S.PreviewCodeBlock>
+											<code>{sample.output}</code>
+										</S.PreviewCodeBlock>
+									</div>
+								)}
+							</div>
+						);
+					})}
+				</S.PreviewSection>
 			)}
 		</div>
 	);

@@ -334,7 +334,7 @@ export function useCodingTestManagement() {
 	const fetchAllProblems = useCallback(async () => {
 		setLoadingAllProblems(true);
 		try {
-			const response = await APIService.getAllProblems();
+			const response = await APIService.getMyProblems();
 			let problemsData: ProblemOption[] = [];
 			if (Array.isArray(response)) {
 				problemsData = response as ProblemOption[];
