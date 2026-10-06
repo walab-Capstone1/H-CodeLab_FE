@@ -149,26 +149,14 @@ export function useProblemCreate() {
 						}));
 					}
 					if (parsedData.description) {
-						const processedDescription = convertMarkdownHeadingsToHtml(
-							parsedData.description,
-						);
-						const hasHtmlTags = /<[a-z][\s\S]*>/i.test(processedDescription);
-						let htmlDescription: string;
-						if (hasHtmlTags) {
-							htmlDescription = processedDescription;
-						} else {
-							htmlDescription = processedDescription
-								.replace(/\n/g, "<br>")
-								.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-								.replace(/\*(.*?)\*/g, "<em>$1</em>");
-						}
+						const rawDescription = parsedData.description;
 						setFormData((prev) => ({
 							...prev,
-							description: htmlDescription,
-							descriptionText: parsedData.description,
+							description: rawDescription,
+							descriptionText: rawDescription,
 						}));
 						if (descriptionRef.current) {
-							descriptionRef.current.innerHTML = htmlDescription;
+							descriptionRef.current.textContent = rawDescription;
 						}
 					}
 					const testCases = parsedData.testCases ?? parsedData.testcases ?? [];
@@ -241,26 +229,14 @@ export function useProblemCreate() {
 						}));
 					}
 					if (parsedData.description) {
-						const processedDescription = convertMarkdownHeadingsToHtml(
-							parsedData.description,
-						);
-						const hasHtmlTags = /<[a-z][\s\S]*>/i.test(processedDescription);
-						let htmlDescription: string;
-						if (hasHtmlTags) {
-							htmlDescription = processedDescription;
-						} else {
-							htmlDescription = processedDescription
-								.replace(/\n/g, "<br>")
-								.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-								.replace(/\*(.*?)\*/g, "<em>$1</em>");
-						}
+						const rawDescription = parsedData.description;
 						setFormData((prev) => ({
 							...prev,
-							description: htmlDescription,
-							descriptionText: parsedData.description,
+							description: rawDescription,
+							descriptionText: rawDescription,
 						}));
 						if (descriptionRef.current) {
-							descriptionRef.current.innerHTML = htmlDescription;
+							descriptionRef.current.textContent = rawDescription;
 						}
 					}
 					const testCases = parsedData.testCases ?? parsedData.testcases ?? [];
@@ -448,7 +424,15 @@ export function useProblemCreate() {
 		};
 		const prefix = levelMap[headingValue] ?? "";
 		if (prefix) {
-			document.execCommand("insertText", false, prefix);
+			const sel = window.getSelection();
+			let toInsert = prefix;
+			if (sel && sel.anchorNode) {
+				const textBefore = sel.anchorNode.textContent?.slice(0, sel.anchorOffset) ?? "";
+				if (textBefore.length > 0 && !textBefore.endsWith("\n")) {
+					toInsert = "\n" + prefix;
+				}
+			}
+			document.execCommand("insertText", false, toInsert);
 		}
 		const plain = el.innerText || el.textContent || "";
 		setFormData((prev) => ({ ...prev, description: plain, descriptionText: plain }));
@@ -465,13 +449,16 @@ export function useProblemCreate() {
 		[formData],
 	);
 
-	/** 전체 미리보기용: 본문(mainOnly) + 입력/출력/예제 (중복 방지 위해 mainOnly 사용) */
+	/** 전체 미리보기용: 본문(mainOnly) + 입력/출력/예제 (입력형식 필드가 있을 때만 본문에서 분리) */
 	const getFullDescriptionForPreview = useCallback(() => {
 		const desc = formData.description || formData.descriptionText || "";
-		const normalized = desc.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-		const match = normalized.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
-		const mainOnly =
-			match && match.index != null ? normalized.slice(0, match.index).trim() : desc;
+		const hasExplicitInputFormat = Boolean(formData.inputFormat?.trim());
+		let mainOnly = desc;
+		if (hasExplicitInputFormat) {
+			const normalized = desc.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+			const match = normalized.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
+			mainOnly = match && match.index != null ? normalized.slice(0, match.index).trim() : desc;
+		}
 		return {
 			title: formData.title,
 			description: mainOnly,
@@ -484,15 +471,14 @@ export function useProblemCreate() {
 	/** 미리보기용: 입력/출력/예제는 폼에서만 보이게, 미리보기에는 문제 설명만 표시 */
 	const getDescriptionOnlyForPreview = useCallback(
 		() => {
-			const desc =
-				formData.description || formData.descriptionText || "";
-			const normalized = desc.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-			// 줄 맨 앞이든 중간이든 "## 입력 형식" 이하는 잘라서 본문만
-			const match = normalized.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
-			const mainOnly =
-				match && match.index != null
-					? normalized.slice(0, match.index).trim()
-					: desc;
+			const desc = formData.description || formData.descriptionText || "";
+			const hasExplicitInputFormat = Boolean(formData.inputFormat?.trim());
+			let mainOnly = desc;
+			if (hasExplicitInputFormat) {
+				const normalized = desc.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+				const match = normalized.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
+				mainOnly = match && match.index != null ? normalized.slice(0, match.index).trim() : desc;
+			}
 			return {
 				title: formData.title,
 				description: mainOnly,
@@ -505,16 +491,20 @@ export function useProblemCreate() {
 	);
 
 	const getFullDescriptionForBackend = useCallback((): string => {
-		// 본문만 사용(이미 "## 입력 형식" 이하가 있으면 제거 후 한 번만 붙임 → 저장 시 중복 방지)
-		const raw = (formData.descriptionText || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-		const mainMatch = raw.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
-		const mainOnly = mainMatch && mainMatch.index != null ? raw.slice(0, mainMatch.index).trim() : raw;
-		let full = mainOnly;
-		if (formData.inputFormat) {
-			full += "\n\n## 입력 형식\n" + formData.inputFormat;
+		// 전용 필드(inputFormat)에 값이 있을 때만 본문에서 "## 입력 형식" 이하를 분리하고 합침 (데이터 유실 방지)
+		const raw = (formData.descriptionText || formData.description || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+		const hasExplicitInputFormat = Boolean(formData.inputFormat?.trim());
+		let mainOnly = raw;
+		if (hasExplicitInputFormat) {
+			const mainMatch = raw.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
+			mainOnly = mainMatch && mainMatch.index != null ? raw.slice(0, mainMatch.index).trim() : raw;
 		}
-		if (formData.outputFormat) {
-			full += "\n\n## 출력 형식\n" + formData.outputFormat;
+		let full = mainOnly;
+		if (hasExplicitInputFormat) {
+			full += "\n\n## 입력 형식\n" + formData.inputFormat.trim();
+		}
+		if (formData.outputFormat?.trim()) {
+			full += "\n\n## 출력 형식\n" + formData.outputFormat.trim();
 		}
 		// 예제는 내용이 있을 때만 추가합니다 (빈 값이면 "## 예제" 섹션 자체를 생략)
 		if (formData.sampleInputs.some((s) => s.input || s.output)) {

@@ -146,6 +146,31 @@ export function useUserManagement() {
 		[sectionId, fetchStudents],
 	);
 
+	const handleExpelStudent = useCallback(
+		async (userId: number, studentName?: string) => {
+			if (!sectionId) {
+				alert("수업을 선택해주세요.");
+				return;
+			}
+			const displayName = studentName ? `'${studentName}' 학생` : "이 사용자";
+			if (
+				!window.confirm(
+					`${displayName}을(를) 수업에서 퇴출하시겠습니까?\n퇴출 시 수강생 목록에서 완전히 삭제됩니다.`,
+				)
+			)
+				return;
+			try {
+				await APIService.expelStudentFromSection(sectionId, userId);
+				alert(`${displayName}이(가) 수업에서 퇴출되었습니다.`);
+				await fetchStudents();
+			} catch (error) {
+				console.error("수강생 퇴출 실패:", error);
+				alert(`수강생 퇴출에 실패했습니다: ${(error as Error).message || ""}`);
+			}
+		},
+		[sectionId, fetchStudents],
+	);
+
 	const filteredStudents = students.filter((student) => {
 		const matchesSearch =
 			student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -280,5 +305,6 @@ export function useUserManagement() {
 		handleSort,
 		handleAddTutor,
 		handleRemoveTutor,
+		handleExpelStudent,
 	};
 }

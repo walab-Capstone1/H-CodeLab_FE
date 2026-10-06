@@ -26,7 +26,7 @@ export const useAssignmentProblems = () => {
   const fetchAvailableProblems = useCallback(async () => {
     setLoadingAvailableProblems(true);
     try {
-      const response = await APIService.getAllProblems();
+      const response = await APIService.getMyProblems();
       const problems = response.data || response || [];
       setAvailableProblems(Array.isArray(problems) ? problems : []);
     } catch (error) {
@@ -42,10 +42,10 @@ export const useAssignmentProblems = () => {
       let problems: Problem[] = [];
 
       if (sectionId) {
-        const response = await APIService.getAllProblems();
+        const response = await APIService.getMyProblems();
         problems = response.data || response || [];
       } else {
-        const response = await APIService.getAllProblems();
+        const response = await APIService.getMyProblems();
         problems = response.data || response || [];
       }
 

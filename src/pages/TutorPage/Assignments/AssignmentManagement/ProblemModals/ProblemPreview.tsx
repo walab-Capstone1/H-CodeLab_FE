@@ -1,6 +1,8 @@
-import type React from "react";
+import React, { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import {
 	ProblemPreviewWrapper,
 	ProblemPreviewEmpty,
@@ -9,9 +11,9 @@ import {
 	ProblemPreviewSection,
 	ProblemPreviewH2,
 	ProblemPreviewH3,
-	ProblemPreviewContentText,
 	ProblemPreviewParagraph,
 	ProblemPreviewCodeBlock,
+	ProblemPreviewInlineCode,
 } from "./problemCreateStyles";
 
 export interface SampleInput {
@@ -25,6 +27,55 @@ interface ProblemPreviewProps {
 	inputFormat?: string;
 	outputFormat?: string;
 	sampleInputs?: SampleInput[];
+}
+
+const InsidePreContext = createContext(false);
+
+function MarkdownPre({ children }: { children?: ReactNode }) {
+	return (
+		<InsidePreContext.Provider value={true}>
+			<ProblemPreviewCodeBlock>{children}</ProblemPreviewCodeBlock>
+		</InsidePreContext.Provider>
+	);
+}
+
+function MarkdownCode({
+	children,
+	className,
+}: {
+	children?: ReactNode;
+	className?: string;
+}) {
+	const insidePre = useContext(InsidePreContext);
+	if (insidePre) {
+		return <code className={className}>{children}</code>;
+	}
+	return <ProblemPreviewInlineCode>{children}</ProblemPreviewInlineCode>;
+}
+
+const NBSP = "\u00A0";
+
+function prepareMarkdown(text: string): string {
+	if (!text) return "";
+	return text
+		.split(/(```[\s\S]*?```)/g)
+		.map((part, i) => {
+			if (i % 2 === 1) return part;
+			return part
+				.split(/((?:^[ \t]*\|[^\n\r]*\|[ \t]*(?:\r?\n|$))+)/gm)
+				.map((subPart, j) => {
+					if (j % 2 === 1) return subPart;
+					return subPart
+						.replace(/\n{2,}/g, (match) => {
+							const extra = match.length - 2;
+							if (extra === 0) return "\n\n";
+							return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+						})
+						.replace(/(?<!\n)\n(?!\n)/g, "  \n");
+				})
+				.join("");
+		})
+		.join("");
 }
 
 const ProblemPreview: React.FC<ProblemPreviewProps> = ({
@@ -48,76 +99,55 @@ const ProblemPreview: React.FC<ProblemPreviewProps> = ({
 		<ProblemPreviewWrapper>
 			{title && <ProblemPreviewTitle>{title}</ProblemPreviewTitle>}
 			{description && (
-				<>
-					{typeof description === "string" && /<[^>]+>/.test(description) ? (
-						<div dangerouslySetInnerHTML={{ __html: description }} />
-					) : (
-						<ProblemPreviewDescription>
-							<ReactMarkdown
-								components={{
-									h1: ({ node, ...props }) => (
-										<h1 className="problem-preview-h1" {...props} />
-									),
-									h2: ({ node, ...props }) => <ProblemPreviewH2 {...props} />,
-									h3: ({ node, ...props }) => <ProblemPreviewH3 {...props} />,
-									code: ({
-										node,
-										inline,
-										className,
-										children,
-										...props
-									}: {
-										node?: unknown;
-										inline?: boolean;
-										className?: string;
-										children?: ReactNode;
-									}) =>
-										inline ? (
-											<code className="problem-preview-inline-code" {...props}>
-												{children}
-											</code>
-										) : (
-											<ProblemPreviewCodeBlock>
-												<code className={className} {...props}>
-													{children}
-												</code>
-											</ProblemPreviewCodeBlock>
-										),
-									p: ({ node, ...props }) => <ProblemPreviewParagraph {...props} />,
-								}}
-							>
-								{description}
-							</ReactMarkdown>
-						</ProblemPreviewDescription>
-					)}
-				</>
+				<ProblemPreviewDescription>
+					<ReactMarkdown
+						components={{
+							pre: MarkdownPre,
+							code: MarkdownCode,
+							h1: ({ node: _n, children, ...props }) => (
+								<h1 className="problem-preview-h1" {...props}>{children}</h1>
+							),
+							h2: ({ node: _n, children, ...props }) => <ProblemPreviewH2 {...props}>{children}</ProblemPreviewH2>,
+							h3: ({ node: _n, children, ...props }) => <ProblemPreviewH3 {...props}>{children}</ProblemPreviewH3>,
+							p: ({ node: _n, children, ...props }) => <ProblemPreviewParagraph {...props}>{children}</ProblemPreviewParagraph>,
+						}}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(description)}
+					</ReactMarkdown>
+				</ProblemPreviewDescription>
 			)}
 			{inputFormat && (
 				<ProblemPreviewSection>
 					<ProblemPreviewH2>입력 형식</ProblemPreviewH2>
-					<ProblemPreviewContentText>
-						{inputFormat.split("\n").map((line, idx) => (
-							<ProblemPreviewParagraph
-								key={`input-${idx}-${line.slice(0, 20)}`}
-							>
-								{line || "\u00A0"}
-							</ProblemPreviewParagraph>
-						))}
-					</ProblemPreviewContentText>
+					<ReactMarkdown
+						components={{
+							pre: MarkdownPre,
+							code: MarkdownCode,
+							p: ({ node: _n, ...props }) => <ProblemPreviewParagraph {...props} />,
+						}}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(inputFormat)}
+					</ReactMarkdown>
 				</ProblemPreviewSection>
 			)}
 			{outputFormat && (
 				<ProblemPreviewSection>
 					<ProblemPreviewH2>출력 형식</ProblemPreviewH2>
-					<ProblemPreviewContentText>
-						{outputFormat.split("\n").map((line, idx) => (
-							<ProblemPreviewParagraph
-								key={`output-${idx}-${line.slice(0, 20)}`}
-							>
-								{line || "\u00A0"}
-							</ProblemPreviewParagraph>
-						))}
-					</ProblemPreviewContentText>
+					<ReactMarkdown
+						components={{
+							pre: MarkdownPre,
+							code: MarkdownCode,
+							p: ({ node: _n, ...props }) => <ProblemPreviewParagraph {...props} />,
+						}}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(outputFormat)}
+					</ReactMarkdown>
 				</ProblemPreviewSection>
 			)}
 			{sampleInputs?.some((s) => s.input || s.output) &&

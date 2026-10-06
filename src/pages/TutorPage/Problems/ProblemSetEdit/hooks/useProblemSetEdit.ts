@@ -51,7 +51,7 @@ export function useProblemSetEdit() {
 
 	const fetchAllProblems = useCallback(async () => {
 		try {
-			const response = await APIService.getAllProblems();
+			const response = await APIService.getMyProblems();
 			let problemsData: Problem[] = [];
 			if (Array.isArray(response)) {
 				problemsData = response;
