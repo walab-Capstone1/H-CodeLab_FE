@@ -1,6 +1,7 @@
 import type React from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { stripDuplicateInputOutputExample } from "../../../Problems/ProblemEdit/utils/problemEditUtils";
 import * as S from "../AssignmentModals/styles";
 import type { ProblemDetailModalProps } from "./types";
@@ -59,7 +60,7 @@ const ProblemDetailModal: React.FC<ProblemDetailModalProps> = ({
 						<S.DetailBody>
 							{description ? (
 								isMarkdown ? (
-									<ReactMarkdown>{description}</ReactMarkdown>
+									<ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
 								) : (
 									<div dangerouslySetInnerHTML={{ __html: description }} />
 								)

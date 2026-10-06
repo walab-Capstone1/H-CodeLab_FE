@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { stripDuplicateInputOutputExample } from "../../Problems/ProblemEdit/utils/problemEditUtils";
 import * as S from "./styles";
 
@@ -74,6 +75,7 @@ const ProblemDetailPanel: React.FC<ProblemDetailPanelProps> = ({
 						{desc ? (
 							isMd ? (
 								<ReactMarkdown
+									remarkPlugins={[remarkGfm]}
 									components={{
 										code({ node, inline, className, children, ...props }: any) {
 											return inline ? (

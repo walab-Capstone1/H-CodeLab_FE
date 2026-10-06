@@ -1,6 +1,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { stripDuplicateInputOutputExample } from "../../../../TutorPage/Problems/ProblemEdit/utils/problemEditUtils";
 import * as S from "./styles";
@@ -41,24 +42,32 @@ function DescCode({
 	return <code className="inline-code">{children}</code>;
 }
 
-// 코드 블록 밖에서:
+// 코드 블록 및 마크다운 테이블 밖에서:
 //  - \n 1번  → "  \n"  (마크다운 hard break = <br>)
 //  - \n 2번  → 단락 분리
 //  - \n 3번+ → 단락 분리 + 빈 줄(\u00A0) 삽입
 const NBSP = "\u00A0";
 
 function prepareMarkdown(text: string): string {
+	if (!text) return "";
 	return text
 		.split(/(```[\s\S]*?```)/g)
 		.map((part, i) => {
 			if (i % 2 === 1) return part; // 코드 블록 내부 → 그대로
+			// 마크다운 테이블 행 (| ... |) 보존
 			return part
-				.replace(/\n{2,}/g, (match) => {
-					const extra = match.length - 2;
-					if (extra === 0) return "\n\n";
-					return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+				.split(/((?:^[ \t]*\|[^\n\r]*\|[ \t]*(?:\r?\n|$))+)/gm)
+				.map((subPart, j) => {
+					if (j % 2 === 1) return subPart; // 테이블 블록 내부 → 그대로
+					return subPart
+						.replace(/\n{2,}/g, (match) => {
+							const extra = match.length - 2;
+							if (extra === 0) return "\n\n";
+							return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+						})
+						.replace(/(?<!\n)\n(?!\n)/g, "  \n");
 				})
-				.replace(/(?<!\n)\n(?!\n)/g, "  \n");
+				.join("");
 		})
 		.join("");
 }
@@ -108,6 +117,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
 				{description ? (
 					<ReactMarkdown
 						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
 						rehypePlugins={[rehypeRaw]}
 					>
 						{prepareMarkdown(description)}

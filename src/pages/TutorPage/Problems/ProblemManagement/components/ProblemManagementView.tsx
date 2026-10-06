@@ -4,6 +4,7 @@ import { FaFileExport, FaFileImport } from "react-icons/fa";
 import TutorLayout from "../../../../../layouts/TutorLayout";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import Alert from "../../../../../components/UI/Alert";
 import EmptyState from "../../../../../components/UI/EmptyState";
 import LoadingSpinner from "../../../../../components/UI/LoadingSpinner";
@@ -537,6 +538,7 @@ export default function ProblemManagementView(d: ProblemManagementHookReturn) {
 									return (
 										<S.DescriptionContent>
 											<ReactMarkdown
+												remarkPlugins={[remarkGfm]}
 												rehypePlugins={[rehypeRaw]}
 												components={{
 													pre: ModalMarkdownPre,

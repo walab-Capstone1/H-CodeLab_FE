@@ -36,6 +36,7 @@ const UserManagement: FC = () => {
 		handleSort,
 		handleAddTutor,
 		handleRemoveTutor,
+		handleExpelStudent,
 	} = data;
 	const sortedStudents = data.sortedStudents;
 
@@ -109,6 +110,7 @@ const UserManagement: FC = () => {
 				onItemsPerPageChange={setItemsPerPage}
 				onAddTutor={handleAddTutor}
 				onRemoveTutor={handleRemoveTutor}
+				onExpelStudent={handleExpelStudent}
 				getSortIcon={getSortIcon}
 			/>
 		</TutorLayout>

@@ -2,6 +2,7 @@ import React from "react";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import type { ProblemPreviewProps, SampleInput } from "./types";
 import { descriptionForPreview } from "./utils/problemEditUtils";
 import * as S from "./styles";
@@ -34,17 +35,25 @@ function MarkdownCode({
 const NBSP = "\u00A0";
 
 function prepareMarkdown(text: string): string {
+	if (!text) return "";
 	return text
 		.split(/(```[\s\S]*?```)/g)
 		.map((part, i) => {
 			if (i % 2 === 1) return part;
+			// 마크다운 테이블 행 (| ... |) 보존
 			return part
-				.replace(/\n{2,}/g, (match) => {
-					const extra = match.length - 2;
-					if (extra === 0) return "\n\n";
-					return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+				.split(/((?:^[ \t]*\|[^\n\r]*\|[ \t]*(?:\r?\n|$))+)/gm)
+				.map((subPart, j) => {
+					if (j % 2 === 1) return subPart; // 테이블 블록 내부 → 그대로
+					return subPart
+						.replace(/\n{2,}/g, (match) => {
+							const extra = match.length - 2;
+							if (extra === 0) return "\n\n";
+							return "\n\n" + `${NBSP}\n\n`.repeat(extra);
+						})
+						.replace(/(?<!\n)\n(?!\n)/g, "  \n");
 				})
-				.replace(/(?<!\n)\n(?!\n)/g, "  \n");
+				.join("");
 		})
 		.join("");
 }
@@ -78,40 +87,45 @@ const ProblemPreview: React.FC<ProblemPreviewProps> = ({
 		return <S.PreviewEmpty>문제 설명을 입력하세요</S.PreviewEmpty>;
 	}
 
+	const descOnly = descriptionForPreview(description, Boolean(inputFormat?.trim()));
+
 	return (
 		<S.PreviewWrapper>
-	
-	{description && (
-		<S.PreviewDescription>
-			<ReactMarkdown components={mdComponents} rehypePlugins={[rehypeRaw]}>
-				{prepareMarkdown(descriptionForPreview(description))}
-			</ReactMarkdown>
-		</S.PreviewDescription>
-	)}
+			{descOnly && (
+				<S.PreviewDescription>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(descOnly)}
+					</ReactMarkdown>
+				</S.PreviewDescription>
+			)}
 
 			{!descriptionOnly && inputFormat && (
 				<S.PreviewSection>
 					<S.PreviewH2>입력 형식</S.PreviewH2>
-					<S.PreviewContentText>
-						{inputFormat.split("\n").map((line, idx) => (
-							<S.PreviewParagraph key={`input-${idx}-${line}`}>
-								{line || "\u00A0"}
-							</S.PreviewParagraph>
-						))}
-					</S.PreviewContentText>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(inputFormat)}
+					</ReactMarkdown>
 				</S.PreviewSection>
 			)}
 
 			{!descriptionOnly && outputFormat && (
 				<S.PreviewSection>
 					<S.PreviewH2>출력 형식</S.PreviewH2>
-					<S.PreviewContentText>
-						{outputFormat.split("\n").map((line, idx) => (
-							<S.PreviewParagraph key={`output-${idx}-${line}`}>
-								{line || "\u00A0"}
-							</S.PreviewParagraph>
-						))}
-					</S.PreviewContentText>
+					<ReactMarkdown
+						components={mdComponents}
+						remarkPlugins={[remarkGfm]}
+						rehypePlugins={[rehypeRaw]}
+					>
+						{prepareMarkdown(outputFormat)}
+					</ReactMarkdown>
 				</S.PreviewSection>
 			)}
 
