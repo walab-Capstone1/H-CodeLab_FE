@@ -260,18 +260,14 @@ export function useProblemEdit() {
 						setOriginalMemoryLimit(ml);
 					}
 					if (parsedData.description) {
-						const htmlDesc = parsedData.description
-							.replace(/\n/g, "<br>")
-							.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-							.replace(/\*(.*?)\*/g, "<em>$1</em>");
-						const descText = parsedData.description;
+						const rawDescription = parsedData.description;
 						setFormData((prev) => ({
 							...prev,
-							description: htmlDesc,
-							descriptionText: descText,
+							description: rawDescription,
+							descriptionText: rawDescription,
 						}));
 						if (enableFullEdit && descriptionRef.current) {
-							descriptionRef.current.innerHTML = htmlDesc;
+							descriptionRef.current.textContent = rawDescription;
 						}
 					}
 					const testCases = parsedData.testCases ?? parsedData.testcases ?? [];
@@ -539,13 +535,10 @@ export function useProblemEdit() {
 	const getDescriptionOnlyForPreview = useCallback(
 		() => ({
 			title: formData.title,
-			description: (formData.description ?? formData.descriptionText ?? "").includes(
-				"## 입력 형식",
-			)
-				? (formData.description ?? formData.descriptionText ?? "")
-						.split("\n\n## 입력 형식")[0]
-						.trim()
-				: formData.description ?? formData.descriptionText ?? "",
+			description: descriptionForPreview(
+				formData.description ?? formData.descriptionText ?? "",
+				Boolean(formData.inputFormat?.trim()),
+			),
 			inputFormat: "",
 			outputFormat: "",
 			sampleInputs: [],
@@ -557,7 +550,10 @@ export function useProblemEdit() {
 	const getFullPreviewProps = useCallback(
 		() => ({
 			title: formData.title,
-			description: descriptionForPreview(formData.descriptionText ?? ""),
+			description: descriptionForPreview(
+				formData.descriptionText ?? formData.description ?? "",
+				Boolean(formData.inputFormat?.trim()),
+			),
 			inputFormat: formData.inputFormat ?? "",
 			outputFormat: formData.outputFormat ?? "",
 			sampleInputs: formData.sampleInputs ?? [],
@@ -566,14 +562,18 @@ export function useProblemEdit() {
 	);
 
 	const getFullDescriptionForBackend = useCallback((): string => {
-		// 본문만 사용(이미 "## 입력 형식" 이하가 있으면 제거 후 한 번만 붙임 → 저장 시 중복 방지)
-		const mainOnly = descriptionForPreview(formData.descriptionText ?? "");
+		// 전용 필드(inputFormat)에 값이 있을 때만 본문에서 잘라내고 붙임 (데이터 유실 방지)
+		const hasExplicitInputFormat = Boolean(formData.inputFormat?.trim());
+		const mainOnly = descriptionForPreview(
+			formData.descriptionText ?? formData.description ?? "",
+			hasExplicitInputFormat,
+		);
 		let full = mainOnly;
-		if (formData.inputFormat) {
-			full += `\n\n## 입력 형식\n${formData.inputFormat}`;
+		if (hasExplicitInputFormat) {
+			full += `\n\n## 입력 형식\n${formData.inputFormat.trim()}`;
 		}
-		if (formData.outputFormat) {
-			full += `\n\n## 출력 형식\n${formData.outputFormat}`;
+		if (formData.outputFormat?.trim()) {
+			full += `\n\n## 출력 형식\n${formData.outputFormat.trim()}`;
 		}
 		// 예제는 내용이 있을 때만 추가합니다 (빈 값이면 "## 예제" 섹션 자체를 생략)
 		if (formData.sampleInputs.some((s) => s.input || s.output)) {
@@ -624,7 +624,15 @@ export function useProblemEdit() {
 		};
 		const prefix = levelMap[headingValue] ?? "";
 		if (prefix) {
-			document.execCommand("insertText", false, prefix);
+			const sel = window.getSelection();
+			let toInsert = prefix;
+			if (sel && sel.anchorNode) {
+				const textBefore = sel.anchorNode.textContent?.slice(0, sel.anchorOffset) ?? "";
+				if (textBefore.length > 0 && !textBefore.endsWith("\n")) {
+					toInsert = "\n" + prefix;
+				}
+			}
+			document.execCommand("insertText", false, toInsert);
 		}
 		const plain = el.innerText || el.textContent || "";
 		setFormData((prev) => ({ ...prev, description: plain, descriptionText: plain }));

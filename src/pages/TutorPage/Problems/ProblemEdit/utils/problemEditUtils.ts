@@ -50,10 +50,15 @@ export function stripDuplicateInputOutputExample(description: string): string {
 /**
  * 미리보기용: description에서 "## 입력 형식" 이하 섹션을 제거해 본문만 반환합니다.
  * (입력/출력/예제는 전용 필드로 따로 보여주므로, 본문 영역에서는 한 번만 보이게 함)
- * 줄 맨 앞에 있거나 문장 중간에 있어도 잘리도록 매칭합니다.
+ * 전용 입력 형식 필드에 값이 있을 때만 본문에서 잘라내어 데이터 유실을 방지합니다.
  */
-export function descriptionForPreview(description: string): string {
-	if (!description || !description.includes("입력 형식")) return description;
+export function descriptionForPreview(
+	description: string,
+	hasExplicitInputFormat = true,
+): string {
+	if (!hasExplicitInputFormat || !description || !description.includes("입력 형식")) {
+		return description;
+	}
 	const normalized = description.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 	// (\n|^) = 줄바꿈 또는 문자열 시작 다음에 오는 "## 입력 형식"
 	const match = normalized.match(/(\n|^)\s*##\s*입력\s*형식\s*[\n\r]/);
