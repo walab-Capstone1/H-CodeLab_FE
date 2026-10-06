@@ -20,6 +20,7 @@ interface UserManagementTableProps {
 	onItemsPerPageChange: (n: number) => void;
 	onAddTutor: (userId: number) => void;
 	onRemoveTutor: (userId: number) => void;
+	onExpelStudent: (userId: number, studentName?: string) => void;
 	getSortIcon: (field: SortField) => React.ReactNode;
 }
 
@@ -40,6 +41,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
 	onItemsPerPageChange,
 	onAddTutor,
 	onRemoveTutor,
+	onExpelStudent,
 	getSortIcon,
 }) => {
 	return (
@@ -73,9 +75,14 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
 							const userRole = sectionId
 								? (student.role ?? userRoles[student.userId] ?? "STUDENT")
 								: null;
-							const isAdmin = currentUserRole === "ADMIN";
-							const isTutor = userRole === "TUTOR";
-							const isStudent = userRole === "STUDENT" || !userRole;
+							const isCurrentUserAdmin = currentUserRole === "ADMIN";
+							const isCurrentUserTutor = currentUserRole === "TUTOR";
+							const isCurrentUserManager =
+								isCurrentUserAdmin || isCurrentUserTutor;
+
+							const isTargetAdmin = userRole === "ADMIN";
+							const isTargetTutor = userRole === "TUTOR";
+							const isTargetStudent = userRole === "STUDENT" || !userRole;
 
 							return (
 								<tr key={student.userId}>
@@ -118,9 +125,10 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
 									)}
 									<S.ActionsCellTd>
 										<S.ActionsCell>
-											{sectionId && isAdmin && (
+											{sectionId && isCurrentUserManager && (
 												<>
-													{isStudent && (
+													{/* 교수(ADMIN) 전용: 튜터 권한 관리 */}
+													{isCurrentUserAdmin && isTargetStudent && (
 														<S.ActionButton
 															onClick={() => onAddTutor(student.userId)}
 															title="튜터로 추가"
@@ -128,13 +136,27 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
 															튜터 추가
 														</S.ActionButton>
 													)}
-													{isTutor && (
+													{isCurrentUserAdmin && isTargetTutor && (
 														<S.ActionButton
 															className="delete"
 															onClick={() => onRemoveTutor(student.userId)}
 															title="튜터 권한 제거"
 														>
 															튜터 제거
+														</S.ActionButton>
+													)}
+
+													{/* 수강생 퇴출: 교수는 학생과 튜터 퇴출 가능, 튜터는 학생만 퇴출 가능 */}
+													{((isCurrentUserAdmin && !isTargetAdmin) ||
+														(isCurrentUserTutor && isTargetStudent)) && (
+														<S.ActionButton
+															className="delete"
+															onClick={() =>
+																onExpelStudent(student.userId, student.name)
+															}
+															title="수업에서 퇴출"
+														>
+															퇴출
 														</S.ActionButton>
 													)}
 												</>

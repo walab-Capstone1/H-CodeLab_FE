@@ -728,6 +728,15 @@ class APIService {
 		});
 	}
 
+	async expelStudentFromSection(
+		sectionId: number | string,
+		userId: number | string,
+	): Promise<any> {
+		return await this.request(`/sections/${sectionId}/students/${userId}`, {
+			method: "DELETE",
+		});
+	}
+
 	async getSectionAdmins(sectionId: number | string): Promise<any> {
 		return await this.request(`/sections/${sectionId}/admins`);
 	}
